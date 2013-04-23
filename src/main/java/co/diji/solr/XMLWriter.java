@@ -17,16 +17,18 @@
 
 package co.diji.solr;
 
+import java.io.IOException;
+import java.io.Writer;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.XML;
-
-import java.io.Writer;
-import java.io.IOException;
-import java.util.*;
-
-import org.apache.lucene.document.Fieldable;
 import org.elasticsearch.common.joda.time.DateTime;
 import org.elasticsearch.common.joda.time.format.DateTimeFormat;
 import org.elasticsearch.common.joda.time.format.DateTimeFormatter;
@@ -150,17 +152,6 @@ final public class XMLWriter {
       }
     }
   }
-
-  private static final Comparator fieldnameComparator = new Comparator() {
-    public int compare(Object o, Object o1) {
-      Fieldable f1 = (Fieldable)o; Fieldable f2 = (Fieldable)o1;
-      int cmp = f1.name().compareTo(f2.name());
-      return cmp;
-      // note - the sort is stable, so this should not have affected the ordering
-      // of fields with the same name w.r.t eachother.
-    }
-  };
-
 
   /**
    * @since solr 1.3

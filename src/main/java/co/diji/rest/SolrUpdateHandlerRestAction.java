@@ -18,7 +18,6 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 import org.apache.commons.codec.binary.Hex;
-import org.apache.solr.client.solrj.request.JavaBinUpdateRequestCodec;
 import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.SolrInputField;
@@ -27,6 +26,7 @@ import org.apache.solr.common.util.SimpleOrderedMap;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.WriteConsistencyLevel;
 import org.elasticsearch.action.bulk.BulkItemResponse;
+import org.elasticsearch.action.bulk.BulkItemResponse.Failure;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
@@ -43,6 +43,7 @@ import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.XContentThrowableRestResponse;
 
+import co.diji.solr.JavaBinUpdateRequestCodec;
 import co.diji.solr.SolrResponseWriter;
 
 public class SolrUpdateHandlerRestAction extends BaseRestHandler {
@@ -93,6 +94,8 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
      * @see org.elasticsearch.rest.RestHandler#handleRequest(org.elasticsearch.rest.RestRequest, org.elasticsearch.rest.RestChannel)
      */
     public void handleRequest(final RestRequest request, final RestChannel channel) {
+        final long startTime = System.currentTimeMillis();
+
         // Solr will send commits/optimize as encoded form parameters
         // detect this and just send the response without processing
         // we don't need to do commits with ES
@@ -117,12 +120,20 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
             }
 
             // send response to Solr
-            sendResponse(request, channel);
+			sendResponse(request, channel, 0, System.currentTimeMillis()
+					- startTime, null);
             return;
         }
 
         // get the type of Solr update handler we want to mock, default to xml
-        final String handler = request.hasParam("handler") ? request.param("handler").toLowerCase() : "xml";
+		final String handler;
+		if (request.hasParam("handler")) {
+			handler = request.param("handler").toLowerCase();
+		} else if (request.hasParam("wt")) {
+			handler = request.param("wt").toLowerCase();
+		} else {
+			handler = "xml";
+		}
 
         // Requests are typically sent to Solr in batches of documents
         // We can copy that by submitting batch requests to Solr
@@ -183,7 +194,7 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
                 // We will use the JavaBin codec from solrj
                 // unmarshal the input to a SolrUpdate request
                 JavaBinUpdateRequestCodec codec = new JavaBinUpdateRequestCodec();
-                UpdateRequest req = codec.unmarshal(new ByteArrayInputStream(request.content().array()), null);
+                UpdateRequest req = codec.unmarshal(new ByteArrayInputStream(request.content().toBytes()), null);
 
                 // Get the list of documents to index out of the UpdateRequest
                 // Add each document to the bulk request
@@ -222,26 +233,50 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
                 // successful bulk request
                 public void onResponse(BulkResponse response) {
                     logger.info("Bulk request completed");
+                    StringBuilder failureBuf = null;
                     for (BulkItemResponse itemResponse : response) {
-                        if (itemResponse.failed()) {
-                            logger.error("Index request failed {index:{}, type:{}, id:{}, reason:{}}",
-                                    itemResponse.index(),
-                                    itemResponse.type(),
-                                    itemResponse.id(),
-                                    itemResponse.failure().message());
+                        Failure failure = itemResponse.getFailure();
+                        if (failure != null) {
+							String msg = "Index request failed {index:"
+									+ failure.getIndex() + ", type:"
+									+ failure.getType() + ", id:"
+									+ failure.getId() + ", reason:"
+									+ failure.getMessage() + "}";
+							logger.error(msg);
+							if (failureBuf == null) {
+								failureBuf = new StringBuilder();
+							}
+							failureBuf.append(msg).append('\n');
                         }
                     }
+
+					if (failureBuf == null) {
+						sendResponse(request, channel, 0,
+								System.currentTimeMillis() - startTime, null);
+					} else {
+						NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
+						errorResponse.add("code", 500);
+						errorResponse.add("msg", failureBuf.toString());
+						sendResponse(request, channel, 500,
+								System.currentTimeMillis() - startTime,
+								errorResponse);
+					}
                 }
 
                 // failed bulk request
                 public void onFailure(Throwable e) {
                     logger.error("Bulk request failed", e);
+
+					NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
+					errorResponse.add("code", 500);
+					errorResponse.add("msg", e.getMessage());
+					sendResponse(request, channel, 500,
+							System.currentTimeMillis() - startTime,
+							errorResponse);
                 }
             });
         }
 
-        // send dummy response to Solr so the clients don't choke
-        sendResponse(request, channel);
     }
 
     /**
@@ -250,13 +285,17 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
      * @param request ES rest request
      * @param channel ES rest channel
      */
-    private void sendResponse(RestRequest request, RestChannel channel) {
+	private void sendResponse(RestRequest request, RestChannel channel,
+			int status, long qTime, NamedList<Object> errorResponse) {
         // create NamedList with dummy Solr response
         NamedList<Object> solrResponse = new SimpleOrderedMap<Object>();
         NamedList<Object> responseHeader = new SimpleOrderedMap<Object>();
-        responseHeader.add("status", 0);
-        responseHeader.add("QTime", 5);
+        responseHeader.add("status", status);
+        responseHeader.add("QTime", qTime);
         solrResponse.add("responseHeader", responseHeader);
+        if (errorResponse != null) {
+            solrResponse.add("error", errorResponse);
+        }
 
         // send the dummy response
         solrResponseWriter.writeResponse(solrResponse, request, channel);
@@ -396,7 +435,10 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
         MessageDigest md;
         try {
             md = MessageDigest.getInstance("MD5");
-            id = new String(Hex.encodeHex(md.digest(input.getBytes())));
+            byte[] bytes = input.getBytes();
+			byte[] digest = md.digest(bytes);
+			char[] encodeHex = Hex.encodeHex(digest);
+			id = new String(encodeHex);
         } catch (NoSuchAlgorithmException e) {
             id = input;
         }

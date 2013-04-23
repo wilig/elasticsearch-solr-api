@@ -28,8 +28,8 @@
     </parent>
 
     <properties>
-        <elasticsearch.version>0.20.5</elasticsearch.version>
-        <solr.version>3.6.2</solr.version>
+        <elasticsearch.version>0.90.0</elasticsearch.version>
+        <solr.version>4.2.1</solr.version>
     </properties>
 
     <repositories>
@@ -45,20 +45,19 @@
             <groupId>org.elasticsearch</groupId>
             <artifactId>elasticsearch</artifactId>
             <version>${elasticsearch.version}</version>
-            <scope>compile</scope>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.solr</groupId>
+            <artifactId>solr-core</artifactId>
+            <version>${solr.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.solr</groupId>
             <artifactId>solr-solrj</artifactId>
             <version>${solr.version}</version>
-            <scope>compile</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
     </dependencies>
 
