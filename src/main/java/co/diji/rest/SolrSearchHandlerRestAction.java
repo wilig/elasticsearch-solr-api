@@ -1,25 +1,35 @@
 package co.diji.rest;
 
-import co.diji.solr.SolrResponseWriter;
-import co.diji.utils.QueryStringDecoder;
+import static org.elasticsearch.index.query.FilterBuilders.andFilter;
+import static org.elasticsearch.index.query.FilterBuilders.queryFilter;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
+import org.elasticsearch.ElasticSearchIllegalArgumentException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.inject.Inject;
-import org.elasticsearch.common.joda.time.format.DateTimeFormatter;
-import org.elasticsearch.common.joda.time.format.ISODateTimeFormat;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.AndFilterBuilder;
 import org.elasticsearch.index.query.FilterBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.rest.*;
+import org.elasticsearch.rest.BaseRestHandler;
+import org.elasticsearch.rest.RestChannel;
+import org.elasticsearch.rest.RestController;
+import org.elasticsearch.rest.RestRequest;
+import org.elasticsearch.rest.XContentThrowableRestResponse;
 import org.elasticsearch.rest.action.support.RestActions;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
@@ -32,16 +42,13 @@ import org.elasticsearch.search.facet.terms.TermsFacet;
 import org.elasticsearch.search.facet.terms.TermsFacetBuilder;
 import org.elasticsearch.search.highlight.HighlightBuilder;
 import org.elasticsearch.search.highlight.HighlightField;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
 
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Pattern;
-
-import static org.elasticsearch.index.query.FilterBuilders.andFilter;
-import static org.elasticsearch.index.query.FilterBuilders.queryFilter;
+import co.diji.solr.SolrResponseWriter;
+import co.diji.utils.QueryStringDecoder;
 
 public class SolrSearchHandlerRestAction extends BaseRestHandler {
 
@@ -68,6 +75,10 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 		restController.registerHandler(RestRequest.Method.GET, "/_solr/select", this);
 		restController.registerHandler(RestRequest.Method.GET, "/{index}/_solr/select", this);
 		restController.registerHandler(RestRequest.Method.GET, "/{index}/{type}/_solr/select", this);
+		// SolrServer#query also supports POST method.
+		restController.registerHandler(RestRequest.Method.POST, "/_solr/select", this);
+		restController.registerHandler(RestRequest.Method.POST, "/{index}/_solr/select", this);
+		restController.registerHandler(RestRequest.Method.POST, "/{index}/{type}/_solr/select", this);
 	}
 
 	/**
@@ -93,12 +104,32 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 	 * org.elasticsearch.rest.RestHandler#handleRequest(org.elasticsearch.rest.RestRequest, org.elasticsearch.rest.RestChannel)
 	 */
 	public void handleRequest(final RestRequest request, final RestChannel channel) {
+		StringBuilder uriBuf = new StringBuilder();
+		uriBuf.append(request.uri());
+		if (request.method() == RestRequest.Method.POST) {
+			if (request.uri().indexOf('?') >= 0) {
+				uriBuf.append('&');
+			} else {
+				uriBuf.append('?');
+			}
+			uriBuf.append(request.content().toUtf8());
+		}
+
 		// Get the parameters
-		final Map<String, List<String>> params = parseUriParams(request.uri());
+		final Map<String, List<String>> params = parseUriParams(uriBuf.toString());
 
 		// generate the search request
 		SearchRequest searchRequest = getSearchRequest(params, request);
 		searchRequest.listenerThreaded(false);
+
+		if (request.method() == RestRequest.Method.POST) {
+			Map<String, String> requestParams = request.params();
+			List<String> wtList = params.get("wt");
+			if (!requestParams.containsKey("wt") && wtList != null
+					&& !wtList.isEmpty()) {
+				requestParams.put("wt", params.get("wt").get(0));
+			}
+		}
 
 		// execute the search
 		client.search(searchRequest, new ActionListener<SearchResponse>() {
@@ -124,6 +155,52 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 		});
 	}
 
+	private String getRequestParamAsString(Map<String, List<String>> params,
+			RestRequest request, String key, String defaultValue) {
+		String value = request.param(key);
+		if (value == null) {
+			List<String> list = params.get(key);
+			if (list != null && !list.isEmpty()) {
+				value = list.get(0);
+			} else {
+				value = defaultValue;
+			}
+		}
+		return value;
+	}
+
+	private int getRequestParamAsInt(Map<String, List<String>> params,
+			RestRequest request, String key, int defaultValue) {
+		String value = getRequestParamAsString(params, request, key, null);
+		if (value == null) {
+			return defaultValue;
+		} else {
+			try {
+				return Integer.parseInt(value);
+			} catch (NumberFormatException e) {
+				throw new ElasticSearchIllegalArgumentException(
+						"Failed to parse int parameter [" + key
+								+ "] with value [" + value + "]", e);
+			}
+		}
+	}
+
+	private boolean getRequestParamAsBoolean(Map<String, List<String>> params,
+			RestRequest request, String key, boolean defaultValue) {
+		String value = getRequestParamAsString(params, request, key, null);
+		if (value == null) {
+			return defaultValue;
+		} else {
+			try {
+				return Boolean.parseBoolean(value);
+			} catch (NumberFormatException e) {
+				throw new ElasticSearchIllegalArgumentException(
+						"Failed to parse int parameter [" + key
+								+ "] with value [" + value + "]", e);
+			}
+		}
+	}
+
 	/**
 	 * Generates an ES SearchRequest based on the Solr Input Parameters
 	 * 
@@ -132,26 +209,26 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 	 */
 	private SearchRequest getSearchRequest(Map<String, List<String>> params, RestRequest request) {
 		// get solr search parameters
-		String q = request.param("q");
-		int start = request.paramAsInt("start", 0);
-		int rows = request.paramAsInt("rows", 10);
-		String fl = request.param("fl");
-		String sort = request.param("sort");
+		String q = getRequestParamAsString(params, request, "q", null);
+		int start = getRequestParamAsInt(params, request, "start", 0);
+		int rows = getRequestParamAsInt(params, request, "rows", 10);
+		String fl = getRequestParamAsString(params, request, "fl", null);
+		String sort = getRequestParamAsString(params, request, "sort", null);
 		List<String> fqs = params.get("fq");
-		boolean hl = request.paramAsBoolean("hl", false);
-		boolean facet = request.paramAsBoolean("facet", false);
-    boolean qDsl = request.paramAsBoolean("q.dsl", false);
-    boolean fqDsl = request.paramAsBoolean("fq.dsl", false);
+		boolean hl = getRequestParamAsBoolean(params, request, "hl", false);
+		boolean facet = getRequestParamAsBoolean(params, request, "facet", false);
+		boolean qDsl = getRequestParamAsBoolean(params, request, "q.dsl", false);
+		boolean fqDsl = getRequestParamAsBoolean(params, request, "fq.dsl", false);
 
 		// build the query
 		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 		if (q != null) {
 			QueryBuilder queryBuilder;
-      if (qDsl) {
-        queryBuilder = QueryBuilders.wrapperQuery(q);
-      } else {
-        queryBuilder = QueryBuilders.queryString(q);
-      }
+			if (qDsl) {
+				queryBuilder = QueryBuilders.wrapperQuery(q);
+			} else {
+				queryBuilder = QueryBuilders.queryString(q);
+			}
 			searchSourceBuilder.query(queryBuilder);
 		}
 
@@ -181,12 +258,17 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 					}
 					String reverse = sortStr.substring(delimiter + 1);
 					if ("asc".equals(reverse)) {
-						searchSourceBuilder.sort(sortField, SortOrder.ASC);
+						searchSourceBuilder.sort(SortBuilders
+								.fieldSort(sortField).order(SortOrder.ASC)
+								.ignoreUnmapped(true));
 					} else if ("desc".equals(reverse)) {
-						searchSourceBuilder.sort(sortField, SortOrder.DESC);
+						searchSourceBuilder.sort(SortBuilders
+								.fieldSort(sortField).order(SortOrder.DESC)
+								.ignoreUnmapped(true));
 					}
 				} else {
-					searchSourceBuilder.sort(sortStr);
+					searchSourceBuilder.sort(SortBuilders.fieldSort(sortStr)
+							.ignoreUnmapped(true));
 				}
 			}
 		} else {
@@ -204,12 +286,12 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 			if (fqs.size() > 1) {
 				AndFilterBuilder fqAnd = andFilter();
 				for (String fq : fqs) {
-          QueryBuilder queryBuilder = fqDsl ? QueryBuilders.wrapperQuery(fq) : QueryBuilders.queryString(fq);
+					QueryBuilder queryBuilder = fqDsl ? QueryBuilders.wrapperQuery(fq) : QueryBuilders.queryString(fq);
 					fqAnd.add(queryFilter(queryBuilder));
 				}
 				filterBuilder = fqAnd;
 			} else {
-        QueryBuilder queryBuilder = fqDsl ? QueryBuilders.wrapperQuery(fqs.get(0)) : QueryBuilders.queryString(fqs.get(0));
+				QueryBuilder queryBuilder = fqDsl ? QueryBuilders.wrapperQuery(fqs.get(0)) : QueryBuilders.queryString(fqs.get(0));
 				filterBuilder = queryFilter(queryBuilder);
 			}
 
@@ -219,11 +301,11 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 		// handle highlighting
 		if (hl) {
 			// get supported highlighting parameters if they exist
-			String hlfl = request.param("hl.fl");
-			int hlsnippets = request.paramAsInt("hl.snippets", 1);
-			int hlfragsize = request.paramAsInt("hl.fragsize", 100);
-			String hlsimplepre = request.param("hl.simple.pre");
-			String hlsimplepost = request.param("hl.simple.post");
+			String hlfl = getRequestParamAsString(params, request, "hl.fl", null);
+			int hlsnippets = getRequestParamAsInt(params, request, "hl.snippets", 1);
+			int hlfragsize = getRequestParamAsInt(params, request, "hl.fragsize", 100);
+			String hlsimplepre = getRequestParamAsString(params, request, "hl.simple.pre", null);
+			String hlsimplepost = getRequestParamAsString(params, request, "hl.simple.post", null);
 
 			HighlightBuilder highlightBuilder = new HighlightBuilder();
 			if (hlfl == null) {
@@ -257,8 +339,8 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 		if (facet) {
 			// get supported facet parameters if they exist
 			List<String> facetFields = params.get("facet.field");
-			String facetSort = request.param("facet.sort");
-			int facetLimit = request.paramAsInt("facet.limit", 100);
+			String facetSort = getRequestParamAsString(params, request, "facet.sort", null);
+			int facetLimit = getRequestParamAsInt(params, request, "facet.limit", 100);
 
 			List<String> facetQueries = params.get("facet.query");
 
@@ -287,9 +369,9 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 			}
 		}
 
-    // get index and type we want to search against
-    final String index = request.hasParam("index") ? request.param("index") : "solr";
-    final String type = request.hasParam("type") ? request.param("type") : "docs";
+		// get index and type we want to search against
+		final String index = request.hasParam("index") ? request.param("index") : "solr";
+		final String type = request.hasParam("type") ? request.param("type") : "docs";
 
 		// Build the search Request
 		String[] indices = RestActions.splitIndices(index);
@@ -310,7 +392,7 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 	private NamedList<Object> createSearchResponse(Map<String, List<String>> params, RestRequest request, SearchResponse response) {
 		NamedList<Object> resp = new SimpleOrderedMap<Object>();
 		resp.add("responseHeader", createResponseHeader(params, request, response));
-		resp.add("response", convertToSolrDocumentList(request, response));
+		resp.add("response", convertToSolrDocumentList(params, request, response));
 
 		// add highlight node if highlighting was requested
 		NamedList<Object> highlighting = createHighlightResponse(request, response);
@@ -338,7 +420,7 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 		// generate response header
 		NamedList<Object> responseHeader = new SimpleOrderedMap<Object>();
 		responseHeader.add("status", 0);
-		responseHeader.add("QTime", response.tookInMillis());
+		responseHeader.add("QTime", response.getTookInMillis());
 
 		// echo params in header
 		NamedList<Object> solrParams = new SimpleOrderedMap<Object>();
@@ -362,7 +444,9 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 	 * @param response the ES SearchResponse
 	 * @return search results as a SolrDocumentList
 	 */
-	private SolrDocumentList convertToSolrDocumentList(RestRequest request, SearchResponse response) {
+	private SolrDocumentList convertToSolrDocumentList(
+			Map<String, List<String>> params, RestRequest request,
+			SearchResponse response) {
 		SolrDocumentList results = new SolrDocumentList();
 
 		// get the ES hits
@@ -371,7 +455,7 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 		// set the result information on the SolrDocumentList 
 		results.setMaxScore(hits.getMaxScore());
 		results.setNumFound(hits.getTotalHits());
-		results.setStart(request.paramAsInt("start", 0));
+		results.setStart(getRequestParamAsInt(params, request, "start", 0));
 
 		// loop though the results and convert each
 		// one to a SolrDocument
@@ -472,21 +556,21 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 			NamedList<Object> queryFacets = new SimpleOrderedMap<Object>();
 
 			// loop though all the facets populating the NamedLists we just created
-			Iterator<Facet> facetIter = response.facets().iterator();
+			Iterator<Facet> facetIter = response.getFacets().iterator();
 			while (facetIter.hasNext()) {
 				Facet facet = facetIter.next();
-				if (facet.type().equals(TermsFacet.TYPE)) {
+				if (facet.getType().equals(TermsFacet.TYPE)) {
 					// we have term facet, create NamedList to store terms
 					TermsFacet termFacet = (TermsFacet) facet;
 					NamedList<Object> termFacetObj = new SimpleOrderedMap<Object>();
-					for (TermsFacet.Entry tfEntry : termFacet.entries()) {
-						termFacetObj.add(tfEntry.term(), tfEntry.count());
+					for (TermsFacet.Entry tfEntry : termFacet.getEntries()) {
+						termFacetObj.add(tfEntry.getTerm().string(), tfEntry.getCount());
 					}
 
 					termFacets.add(facet.getName(), termFacetObj);
-				} else if (facet.type().equals(QueryFacet.TYPE)) {
+				} else if (facet.getType().equals(QueryFacet.TYPE)) {
 					QueryFacet queryFacet = (QueryFacet) facet;
-					queryFacets.add(queryFacet.getName(), queryFacet.count());
+					queryFacets.add(queryFacet.getName(), queryFacet.getCount());
 				}
 			}
 

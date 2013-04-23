@@ -1,5 +1,8 @@
 package org.elasticsearch.plugin.diji;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
 import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.plugins.AbstractPlugin;
 import org.elasticsearch.rest.RestModule;
@@ -40,4 +43,10 @@ public class MockSolrPlugin extends AbstractPlugin {
 		}
 	}
 
+	@Override
+	public Collection<Class<? extends Module>> indexModules() {
+		Collection<Class<? extends Module>> modules = new ArrayList<Class<? extends Module>>();
+		modules.add(SolrIndexModule.class);
+		return modules;
+	}
 }
