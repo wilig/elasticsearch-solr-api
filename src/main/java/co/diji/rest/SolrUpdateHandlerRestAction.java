@@ -18,7 +18,6 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 import org.apache.commons.codec.binary.Hex;
-import org.apache.solr.client.solrj.request.JavaBinUpdateRequestCodec;
 import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.SolrInputField;
@@ -44,6 +43,7 @@ import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.XContentThrowableRestResponse;
 
+import co.diji.solr.JavaBinUpdateRequestCodec;
 import co.diji.solr.SolrResponseWriter;
 
 public class SolrUpdateHandlerRestAction extends BaseRestHandler {
