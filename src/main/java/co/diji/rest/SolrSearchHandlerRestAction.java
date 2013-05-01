@@ -4,6 +4,7 @@ import static org.elasticsearch.index.query.FilterBuilders.andFilter;
 import static org.elasticsearch.index.query.FilterBuilders.queryFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,7 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.text.Text;
 import org.elasticsearch.index.query.AndFilterBuilder;
 import org.elasticsearch.index.query.FilterBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -395,13 +397,13 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 		resp.add("response", convertToSolrDocumentList(params, request, response));
 
 		// add highlight node if highlighting was requested
-		NamedList<Object> highlighting = createHighlightResponse(request, response);
+		NamedList<Object> highlighting = createHighlightResponse(params, request, response);
 		if (highlighting != null) {
 			resp.add("highlighting", highlighting);
 		}
 
 		// add faceting node if faceting was requested
-		NamedList<Object> faceting = createFacetResponse(request, response);
+		NamedList<Object> faceting = createFacetResponse(params, request, response);
 		if (faceting != null) {
 			resp.add("facet_counts", faceting);
 		}
@@ -518,11 +520,13 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 	 * @param response the ES SearchResponse
 	 * @return a NamedList if highlighting was requested, null if not
 	 */
-	private NamedList<Object> createHighlightResponse(RestRequest request, SearchResponse response) {
+	private NamedList<Object> createHighlightResponse(
+			Map<String, List<String>> params, RestRequest request,
+			SearchResponse response) {
 		NamedList<Object> highlightResponse = null;
 
 		// if highlighting was requested create the NamedList for the highlights
-		if (request.paramAsBoolean("hl", false)) {
+		if (getRequestParamAsBoolean(params, request, "hl", false)) {
 			highlightResponse = new SimpleOrderedMap<Object>();
 			SearchHits hits = response.getHits();
 			// for each hit, get each highlight field and put the list
@@ -532,7 +536,14 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 				Map<String, HighlightField> highlightFields = hit.getHighlightFields();
 				for (String fieldName : highlightFields.keySet()) {
 					HighlightField highlightField = highlightFields.get(fieldName);
-					docHighlights.add(fieldName, highlightField.getFragments());
+					Text[] fragments = highlightField.getFragments();
+					List<String> fragmentList = new ArrayList<String>(
+							fragments.length);
+					for (Text fragment : fragments) {
+						fragmentList.add(fragment.string());
+					}
+					docHighlights.add(fieldName, fragmentList
+							.toArray(new String[fragmentList.size()]));
 				}
 
 				// highlighting by placing the doc highlights in the response
@@ -545,10 +556,12 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 		return highlightResponse;
 	}
 
-	private NamedList<Object> createFacetResponse(RestRequest request, SearchResponse response) {
+	private NamedList<Object> createFacetResponse(
+			Map<String, List<String>> params, RestRequest request,
+			SearchResponse response) {
 		NamedList<Object> facetResponse = null;
 
-		if (request.paramAsBoolean("facet", false)) {
+		if (getRequestParamAsBoolean(params, request, "facet", false)) {
 			facetResponse = new SimpleOrderedMap<Object>();
 
 			// create NamedLists for field and query facets
@@ -564,13 +577,13 @@ public class SolrSearchHandlerRestAction extends BaseRestHandler {
 					TermsFacet termFacet = (TermsFacet) facet;
 					NamedList<Object> termFacetObj = new SimpleOrderedMap<Object>();
 					for (TermsFacet.Entry tfEntry : termFacet.getEntries()) {
-						termFacetObj.add(tfEntry.getTerm().string(), tfEntry.getCount());
+						termFacetObj.add(tfEntry.getTerm().string(), (int)tfEntry.getCount());
 					}
 
 					termFacets.add(facet.getName(), termFacetObj);
 				} else if (facet.getType().equals(QueryFacet.TYPE)) {
 					QueryFacet queryFacet = (QueryFacet) facet;
-					queryFacets.add(queryFacet.getName(), queryFacet.getCount());
+					queryFacets.add(queryFacet.getName(), (int)queryFacet.getCount());
 				}
 			}
 

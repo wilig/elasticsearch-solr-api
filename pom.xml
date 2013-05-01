@@ -28,7 +28,7 @@
     </parent>
 
     <properties>
-        <elasticsearch.version>0.90.0.RC2</elasticsearch.version>
+        <elasticsearch.version>0.90.0</elasticsearch.version>
         <solr.version>4.2.1</solr.version>
     </properties>
 
