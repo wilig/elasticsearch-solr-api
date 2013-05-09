@@ -143,6 +143,8 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
         // We can copy that by submitting batch requests to Solr
         BulkRequest bulkRequest = Requests.bulkRequest();
         final List<DeleteByQueryRequest> deleteQueryList = new ArrayList<DeleteByQueryRequest>();
+        boolean isCommit = false;
+        boolean isOptimize = false;
 
         // parse and handle the content
         if (handler.equals("xml")) {
@@ -186,7 +188,12 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
                                                 .add((DeleteByQueryRequest) req);
                                     }
                                 }
+                            } else if ("commit".equals(currTag)) {
+                                isCommit = true;
+                            } else if ("optimize".equals(currTag)) {
+                                isOptimize = true;
                             }
+                            // rollback is not supported at the moment..
                             break;
                     }
                 }
@@ -303,6 +310,9 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
             });
         } else if (!deleteQueryList.isEmpty()) {
             deleteByQueries(request, channel, startTime, deleteQueryList);
+        } else if (isCommit || isOptimize) {
+            sendResponse(request, channel, 0, System.currentTimeMillis()
+                    - startTime, null);
         } else {
             try {
                 channel.sendResponse(new XContentThrowableRestResponse(request,
