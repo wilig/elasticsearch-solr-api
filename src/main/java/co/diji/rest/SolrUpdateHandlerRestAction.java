@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -24,12 +25,15 @@ import org.apache.solr.common.SolrInputField;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.elasticsearch.action.ActionListener;
+import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.WriteConsistencyLevel;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkItemResponse.Failure;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.deletebyquery.DeleteByQueryRequest;
+import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.support.replication.ReplicationType;
 import org.elasticsearch.client.Client;
@@ -138,6 +142,7 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
         // Requests are typically sent to Solr in batches of documents
         // We can copy that by submitting batch requests to Solr
         BulkRequest bulkRequest = Requests.bulkRequest();
+        final List<DeleteByQueryRequest> deleteQueryList = new ArrayList<DeleteByQueryRequest>();
 
         // parse and handle the content
         if (handler.equals("xml")) {
@@ -171,9 +176,15 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
                                 }
                             } else if ("delete".equals(currTag)) {
                                 // delete a document
-                                String docid = parseXmlDelete(parser);
-                                if (docid != null) {
-                                    bulkRequest.add(getDeleteRequest(docid, request));
+                                List<ActionRequest<?>> requestList = parseXmlDelete(
+                                        parser, request);
+                                for (ActionRequest<?> req : requestList) {
+                                    if (req instanceof DeleteRequest) {
+                                        bulkRequest.add(req);
+                                    } else if (req instanceof DeleteByQueryRequest) {
+                                        deleteQueryList
+                                                .add((DeleteByQueryRequest) req);
+                                    }
                                 }
                             }
                             break;
@@ -208,9 +219,18 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
 
                 // See if we have any documents to delete
                 // if yes, add them to the bulk request
-                if (req.getDeleteById() != null) {
-                    for (String id : req.getDeleteById()) {
-                        bulkRequest.add(getDeleteRequest(id, request));
+                List<String> deleteIds = req.getDeleteById();
+                if (deleteIds != null) {
+                    for (String id : deleteIds) {
+                        bulkRequest.add(getDeleteIdRequest(id, request));
+                    }
+                }
+
+                List<String> deleteQueries = req.getDeleteQuery();
+                if (deleteQueries != null) {
+                    for (String query : deleteQueries) {
+                        deleteQueryList.add(getDeleteQueryRequest(query,
+                                request));
                     }
                 }
             } catch (Exception e) {
@@ -251,8 +271,14 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
                     }
 
 					if (failureBuf == null) {
-						sendResponse(request, channel, 0,
-								System.currentTimeMillis() - startTime, null);
+                        if (deleteQueryList.isEmpty()) {
+                            sendResponse(request, channel, 0,
+                                    System.currentTimeMillis() - startTime,
+                                    null);
+                        } else {
+                            deleteByQueries(request, channel, startTime,
+                                    deleteQueryList);
+                        }
 					} else {
 						NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
 						errorResponse.add("code", 500);
@@ -275,8 +301,49 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
 							errorResponse);
                 }
             });
+        } else if (!deleteQueryList.isEmpty()) {
+            deleteByQueries(request, channel, startTime, deleteQueryList);
+        } else {
+            try {
+                channel.sendResponse(new XContentThrowableRestResponse(request,
+                        new UnsupportedOperationException(
+                                "Unsupported request: " + request.toString())));
+            } catch (IOException e1) {
+                logger.error("Failed to send error response", e1);
+            }
         }
+    }
 
+    private void deleteByQueries(final RestRequest request,
+            final RestChannel channel, final long startTime,
+            final List<DeleteByQueryRequest> deleteQueryList) {
+        final AtomicInteger counter = new AtomicInteger(deleteQueryList.size());
+        for (DeleteByQueryRequest deleteQueryRequest : deleteQueryList) {
+            client.deleteByQuery(deleteQueryRequest,
+                    new ActionListener<DeleteByQueryResponse>() {
+
+                        @Override
+                        public void onResponse(DeleteByQueryResponse response) {
+                            if (counter.decrementAndGet() == 0) {
+                                sendResponse(request, channel, 0,
+                                        System.currentTimeMillis() - startTime,
+                                        null);
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Throwable e) {
+                            logger.error("DeleteByQuery request failed", e);
+
+                            NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
+                            errorResponse.add("code", 500);
+                            errorResponse.add("msg", e.getMessage());
+                            sendResponse(request, channel, 500,
+                                    System.currentTimeMillis() - startTime,
+                                    errorResponse);
+                        }
+                    });
+        }
     }
 
     /**
@@ -308,7 +375,7 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
      * @param request the ES rest request
      * @return the ES delete request
      */
-    private DeleteRequest getDeleteRequest(String id, RestRequest request) {
+    private DeleteRequest getDeleteIdRequest(String id, RestRequest request) {
 
         // get the index and type we want to execute this delete request on
         final String index = request.hasParam("index") ? request.param("index") : "solr";
@@ -322,6 +389,23 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
         // deleteRequest.version(RestActions.parseVersion(request));
         // deleteRequest.versionType(VersionType.fromString(request.param("version_type"),
         // deleteRequest.versionType()));
+
+        deleteRequest.routing(request.param("routing"));
+
+        return deleteRequest;
+    }
+
+    private DeleteByQueryRequest getDeleteQueryRequest(String query,
+            RestRequest request) {
+
+        // get the index and type we want to execute this delete request on
+        final String index = request.hasParam("index") ? request.param("index")
+                : "solr";
+
+        // create the delete request object
+        DeleteByQueryRequest deleteRequest = Requests
+                .deleteByQueryRequest(index);
+        deleteRequest.query("{\"query_string\":{\"query\":\"" + query + "\"}}");
 
         deleteRequest.routing(request.param("routing"));
 
@@ -546,45 +630,43 @@ public class SolrUpdateHandlerRestAction extends BaseRestHandler {
      * @return the document id to delete
      * @throws XMLStreamException
      */
-    private String parseXmlDelete(XMLStreamReader parser) throws XMLStreamException {
-        String docid = null;
+    private List<ActionRequest<?>> parseXmlDelete(XMLStreamReader parser,
+            RestRequest request) throws XMLStreamException {
         StringBuilder buf = new StringBuilder();
         boolean stop = false;
+        List<ActionRequest<?>> requestList = new ArrayList<ActionRequest<?>>();
         // infinite loop until we get docid or error
         while (!stop) {
             int event = parser.next();
             switch (event) {
-                case XMLStreamConstants.START_ELEMENT :
-                    // we just want the id node
-                    String mode = parser.getLocalName();
-                    if (!"id".equals(mode)) {
-                        logger.warn("unexpected xml tag /delete/" + mode);
-                        stop = true;
-                    }
-                    buf.setLength(0);
-                    break;
-                case XMLStreamConstants.END_ELEMENT :
-                    String currTag = parser.getLocalName();
-                    if ("id".equals(currTag)) {
-                        // we found the id
-                        docid = buf.toString();
-                    } else if ("delete".equals(currTag)) {
-                        // done parsing, exit loop
-                        stop = true;
-                    } else {
-                        logger.warn("unexpected xml tag /delete/" + currTag);
-                    }
-                    break;
-                case XMLStreamConstants.SPACE :
-                case XMLStreamConstants.CDATA :
-                case XMLStreamConstants.CHARACTERS :
-                    // save all text data (this is the id)
-                    buf.append(parser.getText());
-                    break;
+            case XMLStreamConstants.START_ELEMENT:
+                buf.setLength(0);
+                break;
+            case XMLStreamConstants.END_ELEMENT:
+                String currTag = parser.getLocalName();
+                if ("id".equals(currTag)) {
+                    String docid = buf.toString();
+                    requestList.add(getDeleteIdRequest(docid, request));
+                } else if ("query".equals(currTag)) {
+                    String query = buf.toString();
+                    requestList.add(getDeleteQueryRequest(query, request));
+                } else if ("delete".equals(currTag)) {
+                    // done parsing, exit loop
+                    stop = true;
+                } else {
+                    logger.warn("unexpected xml tag /delete/" + currTag);
+                }
+                break;
+            case XMLStreamConstants.SPACE:
+            case XMLStreamConstants.CDATA:
+            case XMLStreamConstants.CHARACTERS:
+                // save all text data (this is the id)
+                buf.append(parser.getText());
+                break;
             }
         }
 
         // return the extracted docid
-        return docid;
+        return requestList;
     }
 }
