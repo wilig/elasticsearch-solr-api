@@ -1,5 +1,8 @@
 package org.elasticsearch.rest;
 
+import static org.elasticsearch.index.query.FilterBuilders.andFilter;
+import static org.elasticsearch.index.query.FilterBuilders.queryFilter;
+
 import java.io.IOException;
 
 import org.elasticsearch.SolrPluginConstants;
@@ -23,8 +26,6 @@ import org.elasticsearch.search.highlight.HighlightBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.elasticsearch.solr.SolrResponseUtils;
-
-import static org.elasticsearch.index.query.FilterBuilders.*;
 
 public class SolrSearchRestAction extends BaseRestHandler {
 

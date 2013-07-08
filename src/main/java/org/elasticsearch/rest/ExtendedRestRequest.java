@@ -1,10 +1,12 @@
 package org.elasticsearch.rest;
 
+import static org.elasticsearch.common.unit.ByteSizeValue.parseBytesSizeValue;
+import static org.elasticsearch.common.unit.TimeValue.parseTimeValue;
+
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.UnsupportedCharsetException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,9 +16,6 @@ import org.elasticsearch.ElasticSearchIllegalArgumentException;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
-
-import static org.elasticsearch.common.unit.ByteSizeValue.*;
-import static org.elasticsearch.common.unit.TimeValue.*;
 
 /**
  * @author shinsuke
@@ -45,7 +44,7 @@ public class ExtendedRestRequest implements RestRequest {
         String uri = uriBuf.toString();
         final int pathLength = getPath(uri).length();
         if (uri.length() == pathLength) {
-            paramMap = Collections.emptyMap();
+            paramMap = new LinkedHashMap<String, List<String>>();
         } else {
 
             String charset = request.header("Accept-Charset");
@@ -54,6 +53,14 @@ public class ExtendedRestRequest implements RestRequest {
             }
 
             paramMap = decodeParams(uri.substring(pathLength + 1), charset);
+        }
+        
+        for(Map.Entry<String, String> entry:request.params().entrySet()){
+            if(!paramMap.containsKey(entry.getKey())){
+                List<String> list=new ArrayList<String>(1);
+                list.add(entry.getValue());
+                paramMap.put(entry.getKey(), list);
+            }
         }
     }
 

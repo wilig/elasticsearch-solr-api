@@ -48,9 +48,8 @@ import org.elasticsearch.solr.SolrResponseUtils;
 
 public class SolrUpdateRestAction extends BaseRestHandler {
 
-    // content types
-    private static final String CONTENT_TYPE_URLENCODED =
-        "application/x-www-form-urlencoded";
+
+
 
     // fields in the Solr input document to scan for a document id
     private static final String[] DEFAULT_ID_FIELDS = { "id", "docid",

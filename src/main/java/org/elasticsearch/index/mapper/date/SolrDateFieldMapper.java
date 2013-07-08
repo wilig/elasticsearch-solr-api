@@ -1,5 +1,8 @@
 package org.elasticsearch.index.mapper.date;
 
+import static org.elasticsearch.index.mapper.core.TypeParsers.parseDateTimeFormatter;
+import static org.elasticsearch.index.mapper.core.TypeParsers.parseNumberField;
+
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
@@ -51,8 +54,6 @@ import org.elasticsearch.index.mapper.core.NumberFieldMapper;
 import org.elasticsearch.index.query.QueryParseContext;
 import org.elasticsearch.index.search.NumericRangeFieldDataFilter;
 import org.elasticsearch.index.similarity.SimilarityProvider;
-
-import static org.elasticsearch.index.mapper.core.TypeParsers.*;
 
 public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
 

@@ -3,6 +3,7 @@ package org.elasticsearch.solr;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -402,17 +403,21 @@ public class SolrResponseUtils {
         }
 
         // send the response
-        channel.sendResponse(new BytesRestResponse(
-            writer.toString().getBytes(),
-            CONTENT_TYPE_XML) {
-            @Override
-            public RestStatus status() {
-                final Object errorResponse = obj.get("error");
-                if (errorResponse != null) {
-                    return RestStatus.INTERNAL_SERVER_ERROR;
-                }
-                return RestStatus.OK;
-            }
-        });
+        try {
+			channel.sendResponse(new BytesRestResponse(
+			    writer.toString().getBytes("UTF-8"),
+			    CONTENT_TYPE_XML) {
+			    @Override
+			    public RestStatus status() {
+			        final Object errorResponse = obj.get("error");
+			        if (errorResponse != null) {
+			            return RestStatus.INTERNAL_SERVER_ERROR;
+			        }
+			        return RestStatus.OK;
+			    }
+			});
+		} catch (UnsupportedEncodingException e) {
+			throw new ElasticSearchException("Unsupported encoding.", e);
+		}
     }
 }

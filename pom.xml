@@ -16,27 +16,32 @@
         </license>
     </licenses>
     <scm>
-        <connection>scm:git:git@github.com:codelibs/elasticsearch-mocksolrplugin.git</connection>
-        <developerConnection>scm:git:git@github.com:codelibs/elasticsearch-mocksolrplugin.git</developerConnection>
+        <connection>scm:git:git@github.com:marevol/elasticsearch-mocksolrplugin.git</connection>
+        <developerConnection>scm:git:git@github.com:marevol/elasticsearch-mocksolrplugin.git</developerConnection>
         <url>https://github.com/marevol/elasticsearch-mocksolrplugin</url>
     </scm>
-
-    <parent>
-        <groupId>org.sonatype.oss</groupId>
-        <artifactId>oss-parent</artifactId>
-        <version>7</version>
-    </parent>
 
     <properties>
         <elasticsearch.version>0.90.2</elasticsearch.version>
         <solr.version>4.3.1</solr.version>
     </properties>
 
+    <distributionManagement>
+        <repository>
+            <id>codelibs-repository</id>
+            <url>ftp://maven.codelibs.org/home/codelibs/maven/</url>
+        </repository>
+        <site>
+            <id>codelibs-site</id>
+            <url>ftp://maven.codelibs.org/home/codelibs/project/solrlib/</url>
+        </site>
+    </distributionManagement>
+
     <repositories>
         <repository>
-            <id>oss.sonatype.org</id>
-            <name>OSS Sonatype</name>
-            <url>http://oss.sonatype.org/content/repositories/releases/</url>
+            <id>codelibs.org</id>
+            <name>CodeLibs Repository</name>
+            <url>http://maven.codelibs.org/</url>
         </repository>
     </repositories>
 
@@ -113,5 +118,12 @@
                 </executions>
             </plugin>
         </plugins>
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-ftp</artifactId>
+                <version>2.4</version>
+            </extension>
+        </extensions>
     </build>
 </project>
