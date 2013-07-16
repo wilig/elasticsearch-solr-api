@@ -19,6 +19,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 import org.apache.commons.codec.binary.Hex;
+import org.apache.solr.client.solrj.request.AbstractUpdateRequest.ACTION;
 import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.SolrInputField;
@@ -29,6 +30,11 @@ import org.elasticsearch.SolrPluginConstants;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.WriteConsistencyLevel;
+import org.elasticsearch.action.admin.indices.flush.FlushRequest;
+import org.elasticsearch.action.admin.indices.flush.FlushRequestBuilder;
+import org.elasticsearch.action.admin.indices.flush.FlushResponse;
+import org.elasticsearch.action.admin.indices.optimize.OptimizeRequest;
+import org.elasticsearch.action.admin.indices.optimize.OptimizeResponse;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkItemResponse.Failure;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -37,6 +43,7 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.deletebyquery.DeleteByQueryRequest;
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.support.replication.ReplicationType;
 import org.elasticsearch.action.support.replication.ShardReplicationOperationRequest;
 import org.elasticsearch.client.Client;
@@ -65,6 +72,10 @@ public class SolrUpdateRestAction extends BaseRestHandler {
     // false' to elasticsearch.yml
     private final boolean hashIds;
 
+    private final boolean commitAsFlush;
+    
+    private final boolean optimizeAsOptimize;
+
     private final String defaultIndexName;
 
     private final String defaultTypeName;
@@ -87,6 +98,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         super(settings, client);
 
         hashIds = settings.getAsBoolean("solr.hashIds", false);
+        commitAsFlush = settings.getAsBoolean("solr.commitAsFlush", true);
+        optimizeAsOptimize = settings.getAsBoolean("solr.optimizeAsOptimize", true);
         logger.info("Solr input document id's will " + (hashIds ? "" : "not ")
             + "be hashed to created ElasticSearch document id's");
 
@@ -135,24 +148,34 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
         final RestRequest requestEx = new ExtendedRestRequest(request);
 
+        boolean isCommit = false;
+        boolean isOptimize = false;
+
         // get the type of Solr update handler we want to mock, default to xml
-        final String writerType;
-        if (requestEx.hasParam("wt")) {
-            writerType = requestEx.param("wt").toLowerCase();
-        } else {
-            writerType = "xml";
-        }
+		final String contentType = request.header("Content-Type");
+		String requestType = null;
+		if (contentType != null) {
+			if (contentType.indexOf("application/javabin") >= 0) {
+				requestType = SolrPluginConstants.JAVABIN_FORMAT_TYPE;
+			} else if (contentType
+					.indexOf("application/x-www-form-urlencoded") >= 0) {
+				isCommit = requestEx.paramAsBoolean("commit", false);
+				isOptimize = requestEx.paramAsBoolean("optimize", false);
+				requestType = SolrPluginConstants.NONE_FORMAT_TYPE;
+			}
+		}
+		if (requestType == null) {
+			requestType = SolrPluginConstants.XML_FORMAT_TYPE;
+		}
 
         // Requests are typically sent to Solr in batches of documents
         // We can copy that by submitting batch requests to Solr
         final BulkRequest bulkRequest = Requests.bulkRequest();
         final List<DeleteByQueryRequest> deleteQueryList =
             new ArrayList<DeleteByQueryRequest>();
-        boolean isCommit = false;
-        boolean isOptimize = false;
 
         // parse and handle the content
-        if (writerType.equals("xml")) {
+        if (SolrPluginConstants.XML_FORMAT_TYPE.equals(requestType)) {
             // XML Content
             XMLStreamReader parser = null;
             try {
@@ -226,7 +249,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                     }
                 }
             }
-        } else if (writerType.equals("javabin")) {
+        } else if (SolrPluginConstants.JAVABIN_FORMAT_TYPE.equals(requestType)) {
             // JavaBin Content
             try {
                 // We will use the JavaBin codec from solrj
@@ -268,6 +291,9 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                             requestEx));
                     }
                 }
+
+				isCommit = req.getAction() == ACTION.COMMIT;
+				isOptimize = req.getAction() == ACTION.OPTIMIZE;
             } catch (final Exception e) {
                 // some sort of error processing the javabin input
                 logger.error("Error processing javabin input", e);
@@ -357,12 +383,76 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 }
             });
         } else if (!deleteQueryList.isEmpty()) {
-            this
-                .deleteByQueries(requestEx, channel, startTime, deleteQueryList);
-        } else if (isCommit || isOptimize) {
-            this.sendResponse(requestEx, channel, 0, System.currentTimeMillis()
-                - startTime, null);
-        } else {
+            deleteByQueries(requestEx, channel, startTime, deleteQueryList);
+		} else if (isCommit) {
+			if (commitAsFlush) {
+				final String index = request.hasParam("index") ? request
+						.param("index") : defaultIndexName;
+				FlushRequest flushRequest = new FlushRequest(index);
+				client.admin()
+						.indices()
+						.flush(flushRequest,
+								new ActionListener<FlushResponse>() {
+
+									@Override
+									public void onResponse(
+											FlushResponse response) {
+										sendResponse(requestEx, channel, 0,
+												System.currentTimeMillis()
+														- startTime, null);
+									}
+
+									@Override
+									public void onFailure(Throwable t) {
+										try {
+											channel.sendResponse(new XContentThrowableRestResponse(
+													requestEx, t));
+										} catch (final IOException e) {
+											logger.error(
+													"Failed to send error response",
+													e);
+										}
+									}
+								});
+			} else {
+				sendResponse(requestEx, channel, 0, System.currentTimeMillis()
+						- startTime, null);
+			}
+		} else if (isOptimize) {
+			if (optimizeAsOptimize) {
+				final String index = request.hasParam("index") ? request
+						.param("index") : defaultIndexName;
+				OptimizeRequest optimizeRequest = new OptimizeRequest(index);
+				client.admin()
+						.indices()
+						.optimize(optimizeRequest,
+								new ActionListener<OptimizeResponse>() {
+
+									@Override
+									public void onResponse(
+											OptimizeResponse response) {
+										sendResponse(requestEx, channel, 0,
+												System.currentTimeMillis()
+														- startTime, null);
+									}
+
+									@Override
+									public void onFailure(Throwable t) {
+										try {
+											channel.sendResponse(new XContentThrowableRestResponse(
+													requestEx, t));
+										} catch (final IOException e) {
+											logger.error(
+													"Failed to send error response",
+													e);
+										}
+									}
+								});
+			} else {
+				sendResponse(requestEx, channel, 0, System.currentTimeMillis()
+						- startTime, null);
+			}
+		} else {
             try {
                 channel.sendResponse(new XContentThrowableRestResponse(
                     requestEx,

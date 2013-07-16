@@ -20,6 +20,7 @@ import org.apache.solr.common.util.JavaBinCodec;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.elasticsearch.ElasticSearchException;
+import org.elasticsearch.SolrPluginConstants;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -333,14 +334,17 @@ public class SolrResponseUtils {
     public static void writeResponse(final NamedList<Object> obj,
             final RestRequest request, final RestChannel channel) {
         // determine what kind of output writer the Solr client is expecting
-        final String wt =
-            request.hasParam("wt") ? request.param("wt").toLowerCase() : "xml";
+		final String wt = request.hasParam("wt") ? request.param("wt")
+				.toLowerCase() : SolrPluginConstants.XML_FORMAT_TYPE;
 
         // determine what kind of response we need to send
-        if (wt.equals("xml")) {
+        if (wt.equals(SolrPluginConstants.XML_FORMAT_TYPE)) {
             writeXmlResponse(obj, channel);
-        } else if (wt.equals("javabin")) {
+        } else if (wt.equals(SolrPluginConstants.JAVABIN_FORMAT_TYPE)) {
             writeJavaBinResponse(obj, channel);
+        } else {
+        	// default xml response
+            writeXmlResponse(obj, channel);
         }
     }
 
