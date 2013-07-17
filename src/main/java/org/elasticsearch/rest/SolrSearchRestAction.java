@@ -33,6 +33,10 @@ public class SolrSearchRestAction extends BaseRestHandler {
 
     private final String defaultTypeName;
 
+    private final boolean lowercaseExpandedTerms;
+
+    private final boolean autoGeneratePhraseQueries;
+
     /**
      * Rest actions that mocks the Solr search handler
      * 
@@ -56,6 +60,11 @@ public class SolrSearchRestAction extends BaseRestHandler {
             settings.get(
                 "solr.default.type",
                 SolrPluginConstants.DEFAULT_TYPE_NAME);
+
+		lowercaseExpandedTerms = settings.getAsBoolean(
+				"solr.lowercaseExpandedTerms", false);
+		autoGeneratePhraseQueries = settings.getAsBoolean(
+				"solr.autoGeneratePhraseQueries", true);
 
         // register search handler
         // specifying and index and type is optional
@@ -163,7 +172,9 @@ public class SolrSearchRestAction extends BaseRestHandler {
             if (qDsl) {
                 queryBuilder = QueryBuilders.wrapperQuery(q);
             } else {
-                queryBuilder = QueryBuilders.queryString(q);
+				queryBuilder = QueryBuilders.queryString(q)
+						.lowercaseExpandedTerms(lowercaseExpandedTerms)
+						.autoGeneratePhraseQueries(autoGeneratePhraseQueries);
             }
             searchSourceBuilder.query(queryBuilder);
         }
@@ -247,8 +258,12 @@ public class SolrSearchRestAction extends BaseRestHandler {
             final String hlfl = request.param("hl.fl", null);
             final int hlsnippets = request.paramAsInt("hl.snippets", 1);
             final int hlfragsize = request.paramAsInt("hl.fragsize", 100);
-            final String hlsimplepre = request.param("hl.simple.pre", null);
-            final String hlsimplepost = request.param("hl.simple.post", null);
+			final String hlTagPre = request.param("hl.tag.pre",
+					request.param("hl.simple.pre", null));
+			final String hlTagPost = request.param("hl.tag.post",
+					request.param("hl.simple.post", null));
+            final boolean requireFieldMatch = request.paramAsBoolean(
+                    "hl.requireFieldMatch", false);
 
             final HighlightBuilder highlightBuilder = new HighlightBuilder();
             if (hlfl == null) {
@@ -265,14 +280,16 @@ public class SolrSearchRestAction extends BaseRestHandler {
             }
 
             // pre tags
-            if (hlsimplepre != null) {
-                highlightBuilder.preTags(hlsimplepre);
+            if (hlTagPre != null) {
+                highlightBuilder.preTags(hlTagPre);
             }
 
             // post tags
-            if (hlsimplepost != null) {
-                highlightBuilder.postTags(hlsimplepost);
+            if (hlTagPost != null) {
+                highlightBuilder.postTags(hlTagPost);
             }
+
+            highlightBuilder.requireFieldMatch(requireFieldMatch);
 
             searchSourceBuilder.highlight(highlightBuilder);
 

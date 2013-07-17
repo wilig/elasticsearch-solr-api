@@ -180,9 +180,7 @@ public class SolrResponseUtils {
 
                 // highlighting by placing the doc highlights in the response
                 // based on the document id
-                highlightResponse.add(
-                    hit.field("id").getValue().toString(),
-                    docHighlights);
+                highlightResponse.add(hit.id(), docHighlights);
             }
         }
 
