@@ -40,22 +40,19 @@ import org.elasticsearch.search.highlight.HighlightField;
 public class SolrResponseUtils {
 
     private static final ESLogger logger = Loggers
-        .getLogger(SolrResponseUtils.class);
+            .getLogger(SolrResponseUtils.class);
 
     private static final String CONTENT_TYPE_OCTET = "application/octet-stream";
 
-    private static final String CONTENT_TYPE_XML =
-        "application/xml; charset=UTF-8";
+    private static final String CONTENT_TYPE_XML = "application/xml; charset=UTF-8";
 
     // regex and date format to detect ISO8601 date formats
     private static final Pattern ISO_DATE_PATTERN = Pattern
-        .compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z");;
+            .compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z");;
 
-    private static final String YYYY_MM_DD_T_HH_MM_SS_Z =
-        "yyyy-MM-dd'T'HH:mm:ss'Z'";
+    private static final String YYYY_MM_DD_T_HH_MM_SS_Z = "yyyy-MM-dd'T'HH:mm:ss'Z'";
 
-    private static final String YYYY_MM_DD_T_HH_MM_SS_SSS_Z =
-        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
+    private static final String YYYY_MM_DD_T_HH_MM_SS_SSS_Z = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
 
     protected SolrResponseUtils() {
     }
@@ -63,11 +60,11 @@ public class SolrResponseUtils {
     private static Date parseISODateFormat(final String value) {
         try {
             return new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_SSS_Z)
-                .parse(value);
+                    .parse(value);
         } catch (final ParseException e) {
             try {
                 return new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_Z)
-                    .parse(value);
+                        .parse(value);
             } catch (final ParseException e1) {
                 throw new ElasticSearchException("Could not parse " + value, e);
             }
@@ -91,15 +88,15 @@ public class SolrResponseUtils {
         resp.add("response", convertToSolrDocumentList(request, response));
 
         // add highlight node if highlighting was requested
-        final NamedList<Object> highlighting =
-            createHighlightResponse(request, response);
+        final NamedList<Object> highlighting = createHighlightResponse(request,
+                response);
         if (highlighting != null) {
             resp.add("highlighting", highlighting);
         }
 
         // add faceting node if faceting was requested
-        final NamedList<Object> faceting =
-            createFacetResponse(request, response);
+        final NamedList<Object> faceting = createFacetResponse(request,
+                response);
         if (faceting != null) {
             resp.add("facet_counts", faceting);
         }
@@ -126,10 +123,10 @@ public class SolrResponseUtils {
         // echo params in header
         final NamedList<Object> solrParams = new SimpleOrderedMap<Object>();
         for (final String key : request.params().keySet()) {
-            final String[] values =
-                request.paramAsStringArray(key, new String[0]);
+            final String[] values = request.paramAsStringArray(key,
+                    new String[0]);
             if (values.length > 0) {
-                for (String value : values) {
+                for (final String value : values) {
                     solrParams.add(key, value);
                 }
             }
@@ -160,22 +157,20 @@ public class SolrResponseUtils {
             // for each hit, get each highlight field and put the list
             // of highlight fragments in a NamedList specific to the hit
             for (final SearchHit hit : hits.getHits()) {
-                final NamedList<Object> docHighlights =
-                    new SimpleOrderedMap<Object>();
-                final Map<String, HighlightField> highlightFields =
-                    hit.getHighlightFields();
+                final NamedList<Object> docHighlights = new SimpleOrderedMap<Object>();
+                final Map<String, HighlightField> highlightFields = hit
+                        .getHighlightFields();
                 for (final String fieldName : highlightFields.keySet()) {
-                    final HighlightField highlightField =
-                        highlightFields.get(fieldName);
+                    final HighlightField highlightField = highlightFields
+                            .get(fieldName);
                     final Text[] fragments = highlightField.getFragments();
-                    final List<String> fragmentList =
-                        new ArrayList<String>(fragments.length);
+                    final List<String> fragmentList = new ArrayList<String>(
+                            fragments.length);
                     for (final Text fragment : fragments) {
                         fragmentList.add(fragment.string());
                     }
-                    docHighlights.add(
-                        fieldName,
-                        fragmentList.toArray(new String[fragmentList.size()]));
+                    docHighlights.add(fieldName, fragmentList
+                            .toArray(new String[fragmentList.size()]));
                 }
 
                 // highlighting by placing the doc highlights in the response
@@ -197,8 +192,7 @@ public class SolrResponseUtils {
 
             // create NamedLists for field and query facets
             final NamedList<Object> termFacets = new SimpleOrderedMap<Object>();
-            final NamedList<Object> queryFacets =
-                new SimpleOrderedMap<Object>();
+            final NamedList<Object> queryFacets = new SimpleOrderedMap<Object>();
 
             // loop though all the facets populating the NamedLists we just
             // created
@@ -208,21 +202,18 @@ public class SolrResponseUtils {
                 if (facet.getType().equals(TermsFacet.TYPE)) {
                     // we have term facet, create NamedList to store terms
                     final TermsFacet termFacet = (TermsFacet) facet;
-                    final NamedList<Object> termFacetObj =
-                        new SimpleOrderedMap<Object>();
+                    final NamedList<Object> termFacetObj = new SimpleOrderedMap<Object>();
                     for (final TermsFacet.Entry tfEntry : termFacet
-                        .getEntries()) {
-                        termFacetObj.add(
-                            tfEntry.getTerm().string(),
-                            tfEntry.getCount());
+                            .getEntries()) {
+                        termFacetObj.add(tfEntry.getTerm().string(),
+                                tfEntry.getCount());
                     }
 
                     termFacets.add(facet.getName(), termFacetObj);
                 } else if (facet.getType().equals(QueryFacet.TYPE)) {
                     final QueryFacet queryFacet = (QueryFacet) facet;
-                    queryFacets.add(
-                        queryFacet.getName(),
-                        (int) queryFacet.getCount());
+                    queryFacets.add(queryFacet.getName(),
+                            (int) queryFacet.getCount());
                 }
             }
 
@@ -282,11 +273,10 @@ public class SolrResponseUtils {
                         // detect if the string is a date, and if so
                         // convert it to a Date object
                         if (fieldValue instanceof String
-                            && ISO_DATE_PATTERN
-                                .matcher(fieldValue.toString())
-                                .matches()) {
-                            fieldValue =
-                                parseISODateFormat(fieldValue.toString());
+                                && ISO_DATE_PATTERN.matcher(
+                                        fieldValue.toString()).matches()) {
+                            fieldValue = parseISODateFormat(fieldValue
+                                    .toString());
                         }
 
                         doc.addField(sourceField, fieldValue);
@@ -301,9 +291,8 @@ public class SolrResponseUtils {
                     // detect if the string is a date, and if so
                     // convert it to a Date object
                     if (fieldValue instanceof String
-                        && ISO_DATE_PATTERN
-                            .matcher(fieldValue.toString())
-                            .matches()) {
+                            && ISO_DATE_PATTERN.matcher(fieldValue.toString())
+                                    .matches()) {
                         fieldValue = parseISODateFormat(fieldValue.toString());
                     }
 
@@ -332,8 +321,8 @@ public class SolrResponseUtils {
     public static void writeResponse(final NamedList<Object> obj,
             final RestRequest request, final RestChannel channel) {
         // determine what kind of output writer the Solr client is expecting
-		final String wt = request.hasParam("wt") ? request.param("wt")
-				.toLowerCase() : SolrPluginConstants.XML_FORMAT_TYPE;
+        final String wt = request.hasParam("wt") ? request.param("wt")
+                .toLowerCase() : SolrPluginConstants.XML_FORMAT_TYPE;
 
         // determine what kind of response we need to send
         if (wt.equals(SolrPluginConstants.XML_FORMAT_TYPE)) {
@@ -341,7 +330,7 @@ public class SolrResponseUtils {
         } else if (wt.equals(SolrPluginConstants.JAVABIN_FORMAT_TYPE)) {
             writeJavaBinResponse(obj, channel);
         } else {
-        	// default xml response
+            // default xml response
             writeXmlResponse(obj, channel);
         }
     }
@@ -366,9 +355,8 @@ public class SolrResponseUtils {
         }
 
         // send the response
-        channel.sendResponse(new BytesRestResponse(
-            bo.toByteArray(),
-            CONTENT_TYPE_OCTET) {
+        channel.sendResponse(new BytesRestResponse(bo.toByteArray(),
+                CONTENT_TYPE_OCTET) {
             @Override
             public RestStatus status() {
                 final Object errorResponse = obj.get("error");
@@ -406,20 +394,19 @@ public class SolrResponseUtils {
 
         // send the response
         try {
-			channel.sendResponse(new BytesRestResponse(
-			    writer.toString().getBytes("UTF-8"),
-			    CONTENT_TYPE_XML) {
-			    @Override
-			    public RestStatus status() {
-			        final Object errorResponse = obj.get("error");
-			        if (errorResponse != null) {
-			            return RestStatus.INTERNAL_SERVER_ERROR;
-			        }
-			        return RestStatus.OK;
-			    }
-			});
-		} catch (UnsupportedEncodingException e) {
-			throw new ElasticSearchException("Unsupported encoding.", e);
-		}
+            channel.sendResponse(new BytesRestResponse(writer.toString()
+                    .getBytes("UTF-8"), CONTENT_TYPE_XML) {
+                @Override
+                public RestStatus status() {
+                    final Object errorResponse = obj.get("error");
+                    if (errorResponse != null) {
+                        return RestStatus.INTERNAL_SERVER_ERROR;
+                    }
+                    return RestStatus.OK;
+                }
+            });
+        } catch (final UnsupportedEncodingException e) {
+            throw new ElasticSearchException("Unsupported encoding.", e);
+        }
     }
 }

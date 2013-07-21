@@ -1,8 +1,5 @@
 package org.elasticsearch.rest;
 
-import static org.elasticsearch.index.query.FilterBuilders.andFilter;
-import static org.elasticsearch.index.query.FilterBuilders.queryFilter;
-
 import java.io.IOException;
 
 import org.elasticsearch.SolrPluginConstants;
@@ -26,6 +23,8 @@ import org.elasticsearch.search.highlight.HighlightBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.elasticsearch.solr.SolrResponseUtils;
+
+import static org.elasticsearch.index.query.FilterBuilders.*;
 
 public class SolrSearchRestAction extends BaseRestHandler {
 
@@ -52,47 +51,31 @@ public class SolrSearchRestAction extends BaseRestHandler {
             final RestController restController) {
         super(settings, client);
 
-        defaultIndexName =
-            settings.get(
-                "solr.default.index",
+        defaultIndexName = settings.get("solr.default.index",
                 SolrPluginConstants.DEFAULT_INDEX_NAME);
-        defaultTypeName =
-            settings.get(
-                "solr.default.type",
+        defaultTypeName = settings.get("solr.default.type",
                 SolrPluginConstants.DEFAULT_TYPE_NAME);
 
-		lowercaseExpandedTerms = settings.getAsBoolean(
-				"solr.lowercaseExpandedTerms", false);
-		autoGeneratePhraseQueries = settings.getAsBoolean(
-				"solr.autoGeneratePhraseQueries", true);
+        lowercaseExpandedTerms = settings.getAsBoolean(
+                "solr.lowercaseExpandedTerms", false);
+        autoGeneratePhraseQueries = settings.getAsBoolean(
+                "solr.autoGeneratePhraseQueries", true);
 
         // register search handler
         // specifying and index and type is optional
-        restController.registerHandler(
-            RestRequest.Method.GET,
-            "/_solr/select",
-            this);
-        restController.registerHandler(
-            RestRequest.Method.GET,
-            "/{index}/_solr/select",
-            this);
-        restController.registerHandler(
-            RestRequest.Method.GET,
-            "/{index}/{type}/_solr/select",
-            this);
+        restController.registerHandler(RestRequest.Method.GET, "/_solr/select",
+                this);
+        restController.registerHandler(RestRequest.Method.GET,
+                "/{index}/_solr/select", this);
+        restController.registerHandler(RestRequest.Method.GET,
+                "/{index}/{type}/_solr/select", this);
         // SolrServer#query also supports POST method.
-        restController.registerHandler(
-            RestRequest.Method.POST,
-            "/_solr/select",
-            this);
-        restController.registerHandler(
-            RestRequest.Method.POST,
-            "/{index}/_solr/select",
-            this);
-        restController.registerHandler(
-            RestRequest.Method.POST,
-            "/{index}/{type}/_solr/select",
-            this);
+        restController.registerHandler(RestRequest.Method.POST,
+                "/_solr/select", this);
+        restController.registerHandler(RestRequest.Method.POST,
+                "/{index}/_solr/select", this);
+        restController.registerHandler(RestRequest.Method.POST,
+                "/{index}/{type}/_solr/select", this);
 
     }
 
@@ -118,14 +101,11 @@ public class SolrSearchRestAction extends BaseRestHandler {
             public void onResponse(final SearchResponse response) {
                 try {
                     // write response
-                    SolrResponseUtils.writeResponse(
-                        SolrResponseUtils.createSearchResponse(
-                            requestEx,
-                            response),
-                        requestEx,
-                        channel);
+                    SolrResponseUtils.writeResponse(SolrResponseUtils
+                            .createSearchResponse(requestEx, response),
+                            requestEx, channel);
                 } catch (final Exception e) {
-                    this.onFailure(e);
+                    onFailure(e);
                 }
             }
 
@@ -134,8 +114,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
                 logger.error("Error processing executing search", t);
                 try {
                     channel.sendResponse(new XContentThrowableRestResponse(
-                        requestEx,
-                        t));
+                            requestEx, t));
                 } catch (final IOException e) {
                     logger.error("Failed to send failure response", e);
                 }
@@ -165,16 +144,15 @@ public class SolrSearchRestAction extends BaseRestHandler {
         final boolean fqDsl = request.paramAsBoolean("fq.dsl", false);
 
         // build the query
-        final SearchSourceBuilder searchSourceBuilder =
-            new SearchSourceBuilder();
+        final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         if (q != null) {
             QueryBuilder queryBuilder;
             if (qDsl) {
                 queryBuilder = QueryBuilders.wrapperQuery(q);
             } else {
-				queryBuilder = QueryBuilders.queryString(q)
-						.lowercaseExpandedTerms(lowercaseExpandedTerms)
-						.autoGeneratePhraseQueries(autoGeneratePhraseQueries);
+                queryBuilder = QueryBuilders.queryString(q)
+                        .lowercaseExpandedTerms(lowercaseExpandedTerms)
+                        .autoGeneratePhraseQueries(autoGeneratePhraseQueries);
             }
             searchSourceBuilder.query(queryBuilder);
         }
@@ -206,19 +184,16 @@ public class SolrSearchRestAction extends BaseRestHandler {
                     final String reverse = sortStr.substring(delimiter + 1);
                     if ("asc".equals(reverse)) {
                         searchSourceBuilder.sort(SortBuilders
-                            .fieldSort(sortField)
-                            .order(SortOrder.ASC)
-                            .ignoreUnmapped(true));
+                                .fieldSort(sortField).order(SortOrder.ASC)
+                                .ignoreUnmapped(true));
                     } else if ("desc".equals(reverse)) {
                         searchSourceBuilder.sort(SortBuilders
-                            .fieldSort(sortField)
-                            .order(SortOrder.DESC)
-                            .ignoreUnmapped(true));
+                                .fieldSort(sortField).order(SortOrder.DESC)
+                                .ignoreUnmapped(true));
                     }
                 } else {
-                    searchSourceBuilder.sort(SortBuilders
-                        .fieldSort(sortStr)
-                        .ignoreUnmapped(true));
+                    searchSourceBuilder.sort(SortBuilders.fieldSort(sortStr)
+                            .ignoreUnmapped(true));
                 }
             }
         } else {
@@ -236,15 +211,14 @@ public class SolrSearchRestAction extends BaseRestHandler {
             if (fqs.length > 1) {
                 final AndFilterBuilder fqAnd = andFilter();
                 for (final String fq : fqs) {
-                    final QueryBuilder queryBuilder =
-                        fqDsl ? QueryBuilders.wrapperQuery(fq) : QueryBuilders
-                            .queryString(fq);
+                    final QueryBuilder queryBuilder = fqDsl ? QueryBuilders
+                            .wrapperQuery(fq) : QueryBuilders.queryString(fq);
                     fqAnd.add(queryFilter(queryBuilder));
                 }
                 filterBuilder = fqAnd;
             } else {
-                final QueryBuilder queryBuilder =
-                    fqDsl ? QueryBuilders.wrapperQuery(fqs[0]) : QueryBuilders
+                final QueryBuilder queryBuilder = fqDsl ? QueryBuilders
+                        .wrapperQuery(fqs[0]) : QueryBuilders
                         .queryString(fqs[0]);
                 filterBuilder = queryFilter(queryBuilder);
             }
@@ -258,10 +232,10 @@ public class SolrSearchRestAction extends BaseRestHandler {
             final String hlfl = request.param("hl.fl", null);
             final int hlsnippets = request.paramAsInt("hl.snippets", 1);
             final int hlfragsize = request.paramAsInt("hl.fragsize", 100);
-			final String hlTagPre = request.param("hl.tag.pre",
-					request.param("hl.simple.pre", null));
-			final String hlTagPost = request.param("hl.tag.post",
-					request.param("hl.simple.post", null));
+            final String hlTagPre = request.param("hl.tag.pre",
+                    request.param("hl.simple.pre", null));
+            final String hlTagPost = request.param("hl.tag.post",
+                    request.param("hl.simple.post", null));
             final boolean requireFieldMatch = request.paramAsBoolean(
                     "hl.requireFieldMatch", false);
 
@@ -298,18 +272,18 @@ public class SolrSearchRestAction extends BaseRestHandler {
         // handle faceting
         if (facet) {
             // get supported facet parameters if they exist
-            final String[] facetFields =
-                request.paramAsStringArray("facet.field", new String[0]);
+            final String[] facetFields = request.paramAsStringArray(
+                    "facet.field", new String[0]);
             final String facetSort = request.param("facet.sort", null);
             final int facetLimit = request.paramAsInt("facet.limit", 100);
 
-            final String[] facetQueries =
-                request.paramAsStringArray("facet.query", new String[0]);
+            final String[] facetQueries = request.paramAsStringArray(
+                    "facet.query", new String[0]);
 
             if (facetFields.length > 0) {
                 for (final String facetField : facetFields) {
-                    final TermsFacetBuilder termsFacetBuilder =
-                        new TermsFacetBuilder(facetField);
+                    final TermsFacetBuilder termsFacetBuilder = new TermsFacetBuilder(
+                            facetField);
                     termsFacetBuilder.size(facetLimit);
                     termsFacetBuilder.field(facetField);
 
@@ -317,7 +291,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
                         termsFacetBuilder.order(TermsFacet.ComparatorType.TERM);
                     } else {
                         termsFacetBuilder
-                            .order(TermsFacet.ComparatorType.COUNT);
+                                .order(TermsFacet.ComparatorType.COUNT);
                     }
 
                     searchSourceBuilder.facet(termsFacetBuilder);
@@ -326,10 +300,10 @@ public class SolrSearchRestAction extends BaseRestHandler {
 
             if (facetQueries.length > 0) {
                 for (final String facetQuery : facetQueries) {
-                    final QueryFacetBuilder queryFacetBuilder =
-                        new QueryFacetBuilder(facetQuery);
+                    final QueryFacetBuilder queryFacetBuilder = new QueryFacetBuilder(
+                            facetQuery);
                     queryFacetBuilder.query(QueryBuilders
-                        .queryString(facetQuery));
+                            .queryString(facetQuery));
                     searchSourceBuilder.facet(queryFacetBuilder);
                 }
             }

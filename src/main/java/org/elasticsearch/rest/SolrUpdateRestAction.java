@@ -31,7 +31,6 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.WriteConsistencyLevel;
 import org.elasticsearch.action.admin.indices.flush.FlushRequest;
-import org.elasticsearch.action.admin.indices.flush.FlushRequestBuilder;
 import org.elasticsearch.action.admin.indices.flush.FlushResponse;
 import org.elasticsearch.action.admin.indices.optimize.OptimizeRequest;
 import org.elasticsearch.action.admin.indices.optimize.OptimizeResponse;
@@ -43,7 +42,6 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.deletebyquery.DeleteByQueryRequest;
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.support.replication.ReplicationType;
 import org.elasticsearch.action.support.replication.ShardReplicationOperationRequest;
 import org.elasticsearch.client.Client;
@@ -55,12 +53,9 @@ import org.elasticsearch.solr.SolrResponseUtils;
 
 public class SolrUpdateRestAction extends BaseRestHandler {
 
-
-
-
     // fields in the Solr input document to scan for a document id
     private static final String[] DEFAULT_ID_FIELDS = { "id", "docid",
-        "documentid", "contentid", "uuid", "url" };
+            "documentid", "contentid", "uuid", "url" };
 
     // the xml input factory
     private final XMLInputFactory inputFactory = XMLInputFactory.newInstance();
@@ -73,7 +68,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
     private final boolean hashIds;
 
     private final boolean commitAsFlush;
-    
+
     private final boolean optimizeAsOptimize;
 
     private final String defaultIndexName;
@@ -99,39 +94,28 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
         hashIds = settings.getAsBoolean("solr.hashIds", false);
         commitAsFlush = settings.getAsBoolean("solr.commitAsFlush", true);
-        optimizeAsOptimize = settings.getAsBoolean("solr.optimizeAsOptimize", true);
+        optimizeAsOptimize = settings.getAsBoolean("solr.optimizeAsOptimize",
+                true);
         logger.info("Solr input document id's will " + (hashIds ? "" : "not ")
-            + "be hashed to created ElasticSearch document id's");
+                + "be hashed to created ElasticSearch document id's");
 
-        defaultIndexName =
-            settings.get(
-                "solr.default.index",
+        defaultIndexName = settings.get("solr.default.index",
                 SolrPluginConstants.DEFAULT_INDEX_NAME);
-        defaultTypeName =
-            settings.get(
-                "solr.default.type",
+        defaultTypeName = settings.get("solr.default.type",
                 SolrPluginConstants.DEFAULT_TYPE_NAME);
 
         idFields = settings.getAsArray("solr.idFields", DEFAULT_ID_FIELDS);
 
         // register update handlers
         // specifying and index and type is optional
-        restController.registerHandler(
-            RestRequest.Method.POST,
-            "/_solr/update",
-            this);
-        restController.registerHandler(
-            RestRequest.Method.POST,
-            "/_solr/update/{handler}",
-            this);
-        restController.registerHandler(
-            RestRequest.Method.POST,
-            "/{index}/_solr/update",
-            this);
-        restController.registerHandler(
-            RestRequest.Method.POST,
-            "/{index}/{type}/_solr/update",
-            this);
+        restController.registerHandler(RestRequest.Method.POST,
+                "/_solr/update", this);
+        restController.registerHandler(RestRequest.Method.POST,
+                "/_solr/update/{handler}", this);
+        restController.registerHandler(RestRequest.Method.POST,
+                "/{index}/_solr/update", this);
+        restController.registerHandler(RestRequest.Method.POST,
+                "/{index}/{type}/_solr/update", this);
     }
 
     /*
@@ -152,27 +136,25 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         boolean isOptimize = false;
 
         // get the type of Solr update handler we want to mock, default to xml
-		final String contentType = request.header("Content-Type");
-		String requestType = null;
-		if (contentType != null) {
-			if (contentType.indexOf("application/javabin") >= 0) {
-				requestType = SolrPluginConstants.JAVABIN_FORMAT_TYPE;
-			} else if (contentType
-					.indexOf("application/x-www-form-urlencoded") >= 0) {
-				isCommit = requestEx.paramAsBoolean("commit", false);
-				isOptimize = requestEx.paramAsBoolean("optimize", false);
-				requestType = SolrPluginConstants.NONE_FORMAT_TYPE;
-			}
-		}
-		if (requestType == null) {
-			requestType = SolrPluginConstants.XML_FORMAT_TYPE;
-		}
+        final String contentType = request.header("Content-Type");
+        String requestType = null;
+        if (contentType != null) {
+            if (contentType.indexOf("application/javabin") >= 0) {
+                requestType = SolrPluginConstants.JAVABIN_FORMAT_TYPE;
+            } else if (contentType.indexOf("application/x-www-form-urlencoded") >= 0) {
+                isCommit = requestEx.paramAsBoolean("commit", false);
+                isOptimize = requestEx.paramAsBoolean("optimize", false);
+                requestType = SolrPluginConstants.NONE_FORMAT_TYPE;
+            }
+        }
+        if (requestType == null) {
+            requestType = SolrPluginConstants.XML_FORMAT_TYPE;
+        }
 
         // Requests are typically sent to Solr in batches of documents
         // We can copy that by submitting batch requests to Solr
         final BulkRequest bulkRequest = Requests.bulkRequest();
-        final List<DeleteByQueryRequest> deleteQueryList =
-            new ArrayList<DeleteByQueryRequest>();
+        final List<DeleteByQueryRequest> deleteQueryList = new ArrayList<DeleteByQueryRequest>();
 
         // parse and handle the content
         if (SolrPluginConstants.XML_FORMAT_TYPE.equals(requestType)) {
@@ -180,8 +162,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             XMLStreamReader parser = null;
             try {
                 // create parser for the content
-                parser =
-                    inputFactory.createXMLStreamReader(new StringReader(
+                parser = inputFactory.createXMLStreamReader(new StringReader(
                         requestEx.content().toUtf8()));
 
                 // parse the xml
@@ -202,23 +183,21 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                         final String currTag = parser.getLocalName();
                         if ("doc".equals(currTag)) {
                             // add a document
-                            final Map<String, Object> doc =
-                                this.parseXmlDoc(parser);
+                            final Map<String, Object> doc = parseXmlDoc(parser);
                             if (doc != null) {
-                                bulkRequest.add(this.getIndexRequest(
-                                    doc,
-                                    requestEx));
+                                bulkRequest
+                                        .add(getIndexRequest(doc, requestEx));
                             }
                         } else if ("delete".equals(currTag)) {
                             // delete a document
-                            final List<ActionRequest<?>> requestList =
-                                this.parseXmlDelete(parser, requestEx);
+                            final List<ActionRequest<?>> requestList = parseXmlDelete(
+                                    parser, requestEx);
                             for (final ActionRequest<?> req : requestList) {
                                 if (req instanceof DeleteRequest) {
                                     bulkRequest.add(req);
                                 } else if (req instanceof DeleteByQueryRequest) {
                                     deleteQueryList
-                                        .add((DeleteByQueryRequest) req);
+                                            .add((DeleteByQueryRequest) req);
                                 }
                             }
                         } else if ("commit".equals(currTag)) {
@@ -235,8 +214,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 logger.error("Error processing xml input", e);
                 try {
                     channel.sendResponse(new XContentThrowableRestResponse(
-                        requestEx,
-                        e));
+                            requestEx, e));
                 } catch (final IOException e1) {
                     logger.error("Failed to send error response", e1);
                 }
@@ -254,12 +232,10 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             try {
                 // We will use the JavaBin codec from solrj
                 // unmarshal the input to a SolrUpdate request
-                final JavaBinUpdateRequestCodec codec =
-                    new JavaBinUpdateRequestCodec();
-                final UpdateRequest req =
-                    codec.unmarshal(new ByteArrayInputStream(requestEx
-                        .content()
-                        .toBytes()), null);
+                final JavaBinUpdateRequestCodec codec = new JavaBinUpdateRequestCodec();
+                final UpdateRequest req = codec
+                        .unmarshal(new ByteArrayInputStream(requestEx.content()
+                                .toBytes()), null);
 
                 // Get the list of documents to index out of the UpdateRequest
                 // Add each document to the bulk request
@@ -268,9 +244,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 final List<SolrInputDocument> docs = req.getDocuments();
                 if (docs != null) {
                     for (final SolrInputDocument doc : docs) {
-                        bulkRequest.add(this.getIndexRequest(
-                            this.convertToMap(doc),
-                            requestEx));
+                        bulkRequest.add(getIndexRequest(convertToMap(doc),
+                                requestEx));
                     }
                 }
 
@@ -279,28 +254,26 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 final List<String> deleteIds = req.getDeleteById();
                 if (deleteIds != null) {
                     for (final String id : deleteIds) {
-                        bulkRequest.add(this.getDeleteIdRequest(id, requestEx));
+                        bulkRequest.add(getDeleteIdRequest(id, requestEx));
                     }
                 }
 
                 final List<String> deleteQueries = req.getDeleteQuery();
                 if (deleteQueries != null) {
                     for (final String query : deleteQueries) {
-                        deleteQueryList.add(this.getDeleteQueryRequest(
-                            query,
-                            requestEx));
+                        deleteQueryList.add(getDeleteQueryRequest(query,
+                                requestEx));
                     }
                 }
 
-				isCommit = req.getAction() == ACTION.COMMIT;
-				isOptimize = req.getAction() == ACTION.OPTIMIZE;
+                isCommit = req.getAction() == ACTION.COMMIT;
+                isOptimize = req.getAction() == ACTION.OPTIMIZE;
             } catch (final Exception e) {
                 // some sort of error processing the javabin input
                 logger.error("Error processing javabin input", e);
                 try {
                     channel.sendResponse(new XContentThrowableRestResponse(
-                        requestEx,
-                        e));
+                            requestEx, e));
                 } catch (final IOException e1) {
                     logger.error("Failed to send error response", e1);
                 }
@@ -321,8 +294,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                     for (final BulkItemResponse itemResponse : response) {
                         final Failure failure = itemResponse.getFailure();
                         if (failure != null) {
-                            final String msg =
-                                "Index request failed {index:"
+                            final String msg = "Index request failed {index:"
                                     + failure.getIndex() + ", type:"
                                     + failure.getType() + ", id:"
                                     + failure.getId() + ", reason:"
@@ -336,32 +308,23 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
                     if (failureBuf == null) {
                         if (deleteQueryList.isEmpty()) {
-                            SolrUpdateRestAction.this.sendResponse(
-                                requestEx,
-                                channel,
-                                0,
-                                System.currentTimeMillis() - startTime,
-                                null);
+                            SolrUpdateRestAction.this.sendResponse(requestEx,
+                                    channel, 0, System.currentTimeMillis()
+                                            - startTime, null);
                         } else {
                             SolrUpdateRestAction.this.deleteByQueries(
-                                requestEx,
-                                channel,
-                                startTime,
-                                deleteQueryList);
+                                    requestEx, channel, startTime,
+                                    deleteQueryList);
                         }
                     } else {
                         final String failureMsg = failureBuf.toString();
                         logger.error(failureMsg);
-                        final NamedList<Object> errorResponse =
-                            new SimpleOrderedMap<Object>();
+                        final NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
                         errorResponse.add("code", 500);
                         errorResponse.add("msg", failureMsg);
-                        SolrUpdateRestAction.this.sendResponse(
-                            requestEx,
-                            channel,
-                            500,
-                            System.currentTimeMillis() - startTime,
-                            errorResponse);
+                        SolrUpdateRestAction.this.sendResponse(requestEx,
+                                channel, 500, System.currentTimeMillis()
+                                        - startTime, errorResponse);
                     }
                 }
 
@@ -370,94 +333,90 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 public void onFailure(final Throwable e) {
                     logger.error("Bulk request failed", e);
 
-                    final NamedList<Object> errorResponse =
-                        new SimpleOrderedMap<Object>();
+                    final NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
                     errorResponse.add("code", 500);
                     errorResponse.add("msg", e.getMessage());
-                    SolrUpdateRestAction.this.sendResponse(
-                        requestEx,
-                        channel,
-                        500,
-                        System.currentTimeMillis() - startTime,
-                        errorResponse);
+                    SolrUpdateRestAction.this.sendResponse(requestEx, channel,
+                            500, System.currentTimeMillis() - startTime,
+                            errorResponse);
                 }
             });
         } else if (!deleteQueryList.isEmpty()) {
             deleteByQueries(requestEx, channel, startTime, deleteQueryList);
-		} else if (isCommit) {
-			if (commitAsFlush) {
-				final String index = request.hasParam("index") ? request
-						.param("index") : defaultIndexName;
-				FlushRequest flushRequest = new FlushRequest(index);
-				client.admin()
-						.indices()
-						.flush(flushRequest,
-								new ActionListener<FlushResponse>() {
+        } else if (isCommit) {
+            if (commitAsFlush) {
+                final String index = request.hasParam("index") ? request
+                        .param("index") : defaultIndexName;
+                final FlushRequest flushRequest = new FlushRequest(index);
+                client.admin()
+                        .indices()
+                        .flush(flushRequest,
+                                new ActionListener<FlushResponse>() {
 
-									@Override
-									public void onResponse(
-											FlushResponse response) {
-										sendResponse(requestEx, channel, 0,
-												System.currentTimeMillis()
-														- startTime, null);
-									}
+                                    @Override
+                                    public void onResponse(
+                                            final FlushResponse response) {
+                                        sendResponse(requestEx, channel, 0,
+                                                System.currentTimeMillis()
+                                                        - startTime, null);
+                                    }
 
-									@Override
-									public void onFailure(Throwable t) {
-										try {
-											channel.sendResponse(new XContentThrowableRestResponse(
-													requestEx, t));
-										} catch (final IOException e) {
-											logger.error(
-													"Failed to send error response",
-													e);
-										}
-									}
-								});
-			} else {
-				sendResponse(requestEx, channel, 0, System.currentTimeMillis()
-						- startTime, null);
-			}
-		} else if (isOptimize) {
-			if (optimizeAsOptimize) {
-				final String index = request.hasParam("index") ? request
-						.param("index") : defaultIndexName;
-				OptimizeRequest optimizeRequest = new OptimizeRequest(index);
-				client.admin()
-						.indices()
-						.optimize(optimizeRequest,
-								new ActionListener<OptimizeResponse>() {
+                                    @Override
+                                    public void onFailure(final Throwable t) {
+                                        try {
+                                            channel.sendResponse(new XContentThrowableRestResponse(
+                                                    requestEx, t));
+                                        } catch (final IOException e) {
+                                            logger.error(
+                                                    "Failed to send error response",
+                                                    e);
+                                        }
+                                    }
+                                });
+            } else {
+                sendResponse(requestEx, channel, 0, System.currentTimeMillis()
+                        - startTime, null);
+            }
+        } else if (isOptimize) {
+            if (optimizeAsOptimize) {
+                final String index = request.hasParam("index") ? request
+                        .param("index") : defaultIndexName;
+                final OptimizeRequest optimizeRequest = new OptimizeRequest(
+                        index);
+                client.admin()
+                        .indices()
+                        .optimize(optimizeRequest,
+                                new ActionListener<OptimizeResponse>() {
 
-									@Override
-									public void onResponse(
-											OptimizeResponse response) {
-										sendResponse(requestEx, channel, 0,
-												System.currentTimeMillis()
-														- startTime, null);
-									}
+                                    @Override
+                                    public void onResponse(
+                                            final OptimizeResponse response) {
+                                        sendResponse(requestEx, channel, 0,
+                                                System.currentTimeMillis()
+                                                        - startTime, null);
+                                    }
 
-									@Override
-									public void onFailure(Throwable t) {
-										try {
-											channel.sendResponse(new XContentThrowableRestResponse(
-													requestEx, t));
-										} catch (final IOException e) {
-											logger.error(
-													"Failed to send error response",
-													e);
-										}
-									}
-								});
-			} else {
-				sendResponse(requestEx, channel, 0, System.currentTimeMillis()
-						- startTime, null);
-			}
-		} else {
+                                    @Override
+                                    public void onFailure(final Throwable t) {
+                                        try {
+                                            channel.sendResponse(new XContentThrowableRestResponse(
+                                                    requestEx, t));
+                                        } catch (final IOException e) {
+                                            logger.error(
+                                                    "Failed to send error response",
+                                                    e);
+                                        }
+                                    }
+                                });
+            } else {
+                sendResponse(requestEx, channel, 0, System.currentTimeMillis()
+                        - startTime, null);
+            }
+        } else {
             try {
                 channel.sendResponse(new XContentThrowableRestResponse(
-                    requestEx,
-                    new UnsupportedOperationException("Unsupported request: "
-                        + requestEx.toString())));
+                        requestEx, new UnsupportedOperationException(
+                                "Unsupported request: " + requestEx.toString())));
             } catch (final IOException e) {
                 logger.error("Failed to send error response", e);
             }
@@ -470,43 +429,39 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         final AtomicInteger counter = new AtomicInteger(deleteQueryList.size());
         final StringBuffer failureBuf = new StringBuffer();
         for (final DeleteByQueryRequest deleteQueryRequest : deleteQueryList) {
-            client.deleteByQuery(
-                deleteQueryRequest,
-                new ActionListener<DeleteByQueryResponse>() {
+            client.deleteByQuery(deleteQueryRequest,
+                    new ActionListener<DeleteByQueryResponse>() {
 
-                    @Override
-                    public void onResponse(final DeleteByQueryResponse response) {
-                        if (counter.decrementAndGet() == 0) {
-                            if (failureBuf.length() == 0) {
-                                SolrUpdateRestAction.this.sendResponse(
-                                    request,
-                                    channel,
-                                    0,
-                                    System.currentTimeMillis() - startTime,
-                                    null);
-                            } else {
-                                final NamedList<Object> errorResponse =
-                                    new SimpleOrderedMap<Object>();
-                                errorResponse.add("code", 500);
-                                errorResponse.add("msg", failureBuf.toString());
-                                SolrUpdateRestAction.this.sendResponse(
-                                    request,
-                                    channel,
-                                    500,
-                                    System.currentTimeMillis() - startTime,
-                                    errorResponse);
+                        @Override
+                        public void onResponse(
+                                final DeleteByQueryResponse response) {
+                            if (counter.decrementAndGet() == 0) {
+                                if (failureBuf.length() == 0) {
+                                    SolrUpdateRestAction.this.sendResponse(
+                                            request, channel, 0,
+                                            System.currentTimeMillis()
+                                                    - startTime, null);
+                                } else {
+                                    final NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
+                                    errorResponse.add("code", 500);
+                                    errorResponse.add("msg",
+                                            failureBuf.toString());
+                                    SolrUpdateRestAction.this.sendResponse(
+                                            request, channel, 500,
+                                            System.currentTimeMillis()
+                                                    - startTime, errorResponse);
+                                }
                             }
                         }
-                    }
 
-                    @Override
-                    public void onFailure(final Throwable t) {
-                        logger.error("DeleteByQuery request failed", t);
-                        if (counter.decrementAndGet() == 0) {
-                            failureBuf.append(t.getMessage());
+                        @Override
+                        public void onFailure(final Throwable t) {
+                            logger.error("DeleteByQuery request failed", t);
+                            if (counter.decrementAndGet() == 0) {
+                                failureBuf.append(t.getMessage());
+                            }
                         }
-                    }
-                });
+                    });
         }
     }
 
@@ -548,14 +503,14 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             final RestRequest request) {
 
         // get the index and type we want to execute this delete request on
-        final String index =
-            request.hasParam("index") ? request.param("index") : "solr";
-        final String type =
-            request.hasParam("type") ? request.param("type") : "docs";
+        final String index = request.hasParam("index") ? request.param("index")
+                : "solr";
+        final String type = request.hasParam("type") ? request.param("type")
+                : "docs";
 
         // create the delete request object
-        final DeleteRequest deleteRequest =
-            new DeleteRequest(index, type, this.getId(id));
+        final DeleteRequest deleteRequest = new DeleteRequest(index, type,
+                getId(id));
         deleteRequest.parent(request.param("parent"));
 
         // TODO: this was causing issues, do we need it?
@@ -572,12 +527,12 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             final RestRequest request) {
 
         // get the index and type we want to execute this delete request on
-        final String index =
-            request.hasParam("index") ? request.param("index") : "solr";
+        final String index = request.hasParam("index") ? request.param("index")
+                : "solr";
 
         // create the delete request object
-        final DeleteByQueryRequest deleteRequest =
-            Requests.deleteByQueryRequest(index);
+        final DeleteByQueryRequest deleteRequest = Requests
+                .deleteByQueryRequest(index);
         deleteRequest.query("{\"query_string\":{\"query\":\"" + query + "\"}}");
 
         deleteRequest.routing(request.param("routing"));
@@ -597,29 +552,25 @@ public class SolrUpdateRestAction extends BaseRestHandler {
     private IndexRequest getIndexRequest(final Map<String, Object> doc,
             final RestRequest request) {
         // get the index and type we want to index the document in
-        final String index =
-            request.hasParam("index") ? request.param("index")
+        final String index = request.hasParam("index") ? request.param("index")
                 : defaultIndexName;
-        final String type =
-            request.hasParam("type") ? request.param("type") : defaultTypeName;
+        final String type = request.hasParam("type") ? request.param("type")
+                : defaultTypeName;
 
         // Get the id from request or if not available generate an id for the
         // document
-        final String id =
-            request.hasParam("id") ? request.param("id") : this
-                .getIdForDoc(doc);
+        final String id = request.hasParam("id") ? request.param("id")
+                : getIdForDoc(doc);
 
         // create an IndexRequest for this document
         final IndexRequest indexRequest = new IndexRequest(index, type, id);
         indexRequest.routing(request.param("routing"));
         indexRequest.parent(request.param("parent"));
         indexRequest.source(doc);
-        indexRequest.timeout(request.paramAsTime(
-            "timeout",
-            ShardReplicationOperationRequest.DEFAULT_TIMEOUT));
-        indexRequest.refresh(request.paramAsBoolean(
-            "refresh",
-            indexRequest.refresh()));
+        indexRequest.timeout(request.paramAsTime("timeout",
+                ShardReplicationOperationRequest.DEFAULT_TIMEOUT));
+        indexRequest.refresh(request.paramAsBoolean("refresh",
+                indexRequest.refresh()));
 
         // TODO: this caused issues, do we need it?
         // indexRequest.version(RestActions.parseVersion(request));
@@ -635,13 +586,13 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         final String replicationType = request.param("replication");
         if (replicationType != null) {
             indexRequest.replicationType(ReplicationType
-                .fromString(replicationType));
+                    .fromString(replicationType));
         }
 
         final String consistencyLevel = request.param("consistency");
         if (consistencyLevel != null) {
             indexRequest.consistencyLevel(WriteConsistencyLevel
-                .fromString(consistencyLevel));
+                    .fromString(consistencyLevel));
         }
 
         // we just send a response, no need to fork
@@ -690,7 +641,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
         // return the id which is the md5 of either the
         // random uuid or id found in the input document.
-        return this.getId(id);
+        return getId(id);
     }
 
     /**
@@ -701,7 +652,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
      * @return
      */
     private final String getId(final String id) {
-        return hashIds ? this.getMD5(id) : id;
+        return hashIds ? getMD5(id) : id;
     }
 
     /**
@@ -714,8 +665,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
     private String getMD5(final String input) {
         try {
             final MessageDigest md = MessageDigest.getInstance("MD5");
-            final byte[] bytes =
-                input.getBytes(SolrPluginConstants.CHARSET_UTF8);
+            final byte[] bytes = input
+                    .getBytes(SolrPluginConstants.CHARSET_UTF8);
             final byte[] digest = md.digest(bytes);
             final char[] encodeHex = Hex.encodeHex(digest);
             return String.valueOf(encodeHex);
@@ -833,8 +784,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             final RestRequest request) throws XMLStreamException {
         final StringBuilder buf = new StringBuilder();
         boolean stop = false;
-        final List<ActionRequest<?>> requestList =
-            new ArrayList<ActionRequest<?>>();
+        final List<ActionRequest<?>> requestList = new ArrayList<ActionRequest<?>>();
         // infinite loop until we get docid or error
         while (!stop) {
             final int event = parser.next();
@@ -846,10 +796,10 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 final String currTag = parser.getLocalName();
                 if ("id".equals(currTag)) {
                     final String docid = buf.toString();
-                    requestList.add(this.getDeleteIdRequest(docid, request));
+                    requestList.add(getDeleteIdRequest(docid, request));
                 } else if ("query".equals(currTag)) {
                     final String query = buf.toString();
-                    requestList.add(this.getDeleteQueryRequest(query, request));
+                    requestList.add(getDeleteQueryRequest(query, request));
                 } else if ("delete".equals(currTag)) {
                     // done parsing, exit loop
                     stop = true;

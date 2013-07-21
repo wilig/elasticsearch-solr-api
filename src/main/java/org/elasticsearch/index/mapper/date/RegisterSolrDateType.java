@@ -16,7 +16,7 @@ public class RegisterSolrDateType extends AbstractIndexComponent {
         super(index, indexSettings);
 
         mapperService.documentMapperParser().putTypeParser(
-            SolrDateFieldMapper.CONTENT_TYPE,
-            new SolrDateFieldMapper.TypeParser());
+                SolrDateFieldMapper.CONTENT_TYPE,
+                new SolrDateFieldMapper.TypeParser());
     }
 }

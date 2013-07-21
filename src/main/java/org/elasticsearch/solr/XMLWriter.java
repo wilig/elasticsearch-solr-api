@@ -44,11 +44,11 @@ final public class XMLWriter {
     //
     // static thread safe part
     //
-    public static final char[] XML_START1 =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".toCharArray();
+    public static final char[] XML_START1 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            .toCharArray();
 
     public static final char[] XML_START2_NOSCHEMA = "<response>\n"
-        .toCharArray();
+            .toCharArray();
 
     // //////////////////////////////////////////////////////////
     // request instance specific (non-static, not shared between threads)
@@ -57,7 +57,7 @@ final public class XMLWriter {
     private final Writer writer;
 
     private final DateTimeFormatter dateFormat = DateTimeFormat
-        .forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+            .forPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
     public XMLWriter(final Writer writer) {
         this.writer = writer;
@@ -186,7 +186,7 @@ final public class XMLWriter {
             }
             final Object val = doc.getFieldValue(fname);
 
-            this.writeVal(fname, val);
+            writeVal(fname, val);
         }
 
         writer.write("</doc>");
@@ -211,7 +211,7 @@ final public class XMLWriter {
         if (fields != null) {
             includeScore = fields.contains("score");
             if (fields.size() == 0 || fields.size() == 1 && includeScore
-                || fields.contains("*")) {
+                    || fields.contains("*")) {
                 fields = null; // null means return all stored fields
             }
         }
@@ -244,7 +244,7 @@ final public class XMLWriter {
     public final void writeSolrDocumentList(final String name,
             final SolrDocumentList docs, final Set<String> fields)
             throws IOException {
-        this.writeDocuments(name, new DocumentListInfo() {
+        writeDocuments(name, new DocumentListInfo() {
             @Override
             public int getCount() {
                 return docs.size();
@@ -284,9 +284,9 @@ final public class XMLWriter {
 
         // go in order of most common to least common
         if (val == null) {
-            this.writeNull(name);
+            writeNull(name);
         } else if (val instanceof String) {
-            this.writeStr(name, (String) val);
+            writeStr(name, (String) val);
         } else if (val instanceof Integer) {
             // it would be slower to pass the int ((Integer)val).intValue()
             this.writeInt(name, val.toString());
@@ -305,11 +305,11 @@ final public class XMLWriter {
             this.writeDouble(name, ((Double) val).doubleValue());
         } else if (val instanceof SolrDocumentList) {
             // requires access to IndexReader
-            this.writeSolrDocumentList(name, (SolrDocumentList) val, null);
+            writeSolrDocumentList(name, (SolrDocumentList) val, null);
         } else if (val instanceof Map) {
-            this.writeMap(name, (Map) val);
+            writeMap(name, (Map) val);
         } else if (val instanceof NamedList) {
-            this.writeNamedList(name, (NamedList) val);
+            writeNamedList(name, (NamedList) val);
         } else if (val instanceof Iterable) {
             this.writeArray(name, ((Iterable) val).iterator());
         } else if (val instanceof Object[]) {
@@ -318,8 +318,7 @@ final public class XMLWriter {
             this.writeArray(name, (Iterator) val);
         } else {
             // default...
-            this
-                .writeStr(name, val.getClass().getName() + ':' + val.toString());
+            writeStr(name, val.getClass().getName() + ':' + val.toString());
         }
     }
 
@@ -333,7 +332,7 @@ final public class XMLWriter {
         this.startTag("lst", name, sz <= 0);
 
         for (int i = 0; i < sz; i++) {
-            this.writeVal(val.getName(i), val.getVal(i));
+            writeVal(val.getName(i), val.getVal(i));
         }
 
         if (sz > 0) {
@@ -359,7 +358,7 @@ final public class XMLWriter {
             final Object k = entry.getKey();
             final Object v = entry.getValue();
             // if (sz<indentThreshold) indent();
-            this.writeVal(null == k ? null : k.toString(), v);
+            writeVal(null == k ? null : k.toString(), v);
         }
 
         if (sz > 0) {
@@ -378,7 +377,7 @@ final public class XMLWriter {
             this.startTag("arr", name, false);
 
             while (iter.hasNext()) {
-                this.writeVal(null, iter.next());
+                writeVal(null, iter.next());
             }
 
             writer.write("</arr>");
@@ -392,17 +391,17 @@ final public class XMLWriter {
     //
 
     public void writeNull(final String name) throws IOException {
-        this.writePrim("null", name, "", false);
+        writePrim("null", name, "", false);
     }
 
     public void writeStr(final String name, final String val)
             throws IOException {
-        this.writePrim("str", name, val, true);
+        writePrim("str", name, val, true);
     }
 
     public void writeInt(final String name, final String val)
             throws IOException {
-        this.writePrim("int", name, val, false);
+        writePrim("int", name, val, false);
     }
 
     public void writeInt(final String name, final int val) throws IOException {
@@ -411,7 +410,7 @@ final public class XMLWriter {
 
     public void writeLong(final String name, final String val)
             throws IOException {
-        this.writePrim("long", name, val, false);
+        writePrim("long", name, val, false);
     }
 
     public void writeLong(final String name, final long val) throws IOException {
@@ -420,7 +419,7 @@ final public class XMLWriter {
 
     public void writeBool(final String name, final String val)
             throws IOException {
-        this.writePrim("bool", name, val, false);
+        writePrim("bool", name, val, false);
     }
 
     public void writeBool(final String name, final boolean val)
@@ -430,7 +429,7 @@ final public class XMLWriter {
 
     public void writeShort(final String name, final String val)
             throws IOException {
-        this.writePrim("short", name, val, false);
+        writePrim("short", name, val, false);
     }
 
     public void writeShort(final String name, final short val)
@@ -440,7 +439,7 @@ final public class XMLWriter {
 
     public void writeByte(final String name, final String val)
             throws IOException {
-        this.writePrim("byte", name, val, false);
+        writePrim("byte", name, val, false);
     }
 
     public void writeByte(final String name, final byte val) throws IOException {
@@ -449,7 +448,7 @@ final public class XMLWriter {
 
     public void writeFloat(final String name, final String val)
             throws IOException {
-        this.writePrim("float", name, val, false);
+        writePrim("float", name, val, false);
     }
 
     public void writeFloat(final String name, final float val)
@@ -459,7 +458,7 @@ final public class XMLWriter {
 
     public void writeDouble(final String name, final String val)
             throws IOException {
-        this.writePrim("double", name, val, false);
+        writePrim("double", name, val, false);
     }
 
     public void writeDouble(final String name, final double val)
@@ -474,7 +473,7 @@ final public class XMLWriter {
 
     public void writeDate(final String name, final String val)
             throws IOException {
-        this.writePrim("date", name, val, false);
+        writePrim("date", name, val, false);
     }
 
     //

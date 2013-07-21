@@ -47,8 +47,7 @@ public class SolrPlugin extends AbstractPlugin {
 
     @Override
     public Collection<Class<? extends Module>> indexModules() {
-        final Collection<Class<? extends Module>> modules =
-            new ArrayList<Class<? extends Module>>();
+        final Collection<Class<? extends Module>> modules = new ArrayList<Class<? extends Module>>();
         modules.add(SolrIndexModule.class);
         return modules;
     }

@@ -58,8 +58,8 @@ public class JavaBinUpdateRequestCodec {
     public void marshal(final UpdateRequest updateRequest, final OutputStream os)
             throws IOException {
         final NamedList nl = new NamedList();
-        final NamedList params =
-            this.solrParamsToNamedList(updateRequest.getParams());
+        final NamedList params = solrParamsToNamedList(updateRequest
+                .getParams());
         if (updateRequest.getCommitWithin() != -1) {
             params.add("commitWithin", updateRequest.getCommitWithin());
         }
@@ -113,14 +113,14 @@ public class JavaBinUpdateRequestCodec {
             @Override
             public NamedList readNamedList(final FastInputStream dis)
                     throws IOException {
-                final int sz = this.readSize(dis);
+                final int sz = readSize(dis);
                 final NamedList nl = new NamedList();
                 if (namedList[0] == null) {
                     namedList[0] = nl;
                 }
                 for (int i = 0; i < sz; i++) {
-                    final String name = (String) this.readVal(dis);
-                    final Object val = this.readVal(dis);
+                    final String name = (String) readVal(dis);
+                    final Object val = readVal(dis);
                     nl.add(name, val);
                 }
                 return nl;
@@ -139,31 +139,30 @@ public class JavaBinUpdateRequestCodec {
                 // special treatment for first outermost Iterator
                 // (the list of documents)
                 seenOuterMostDocIterator = true;
-                return this.readOuterMostDocIterator(fis);
+                return readOuterMostDocIterator(fis);
             }
 
             private List readOuterMostDocIterator(final FastInputStream fis)
                     throws IOException {
                 final NamedList params = (NamedList) namedList[0].getVal(0);
                 updateRequest.setParams(new ModifiableSolrParams(SolrParams
-                    .toSolrParams(params)));
+                        .toSolrParams(params)));
                 if (handler == null) {
                     return super.readIterator(fis);
                 }
                 while (true) {
-                    final Object o = this.readVal(fis);
+                    final Object o = readVal(fis);
                     if (o == END_OBJ) {
                         break;
                     }
                     SolrInputDocument sdoc = null;
                     if (o instanceof List) {
-                        sdoc =
-                            JavaBinUpdateRequestCodec.this
+                        sdoc = JavaBinUpdateRequestCodec.this
                                 .listToSolrInputDocument((List<NamedList>) o);
                     } else if (o instanceof NamedList) {
                         final UpdateRequest req = new UpdateRequest();
                         req.setParams(new ModifiableSolrParams(SolrParams
-                            .toSolrParams((NamedList) o)));
+                                .toSolrParams((NamedList) o)));
                         handler.update(null, req);
                     } else {
                         sdoc = (SolrInputDocument) o;
@@ -182,7 +181,7 @@ public class JavaBinUpdateRequestCodec {
             final NamedList params = (NamedList) namedList[0].get("params");
             if (params != null) {
                 updateRequest.setParams(new ModifiableSolrParams(SolrParams
-                    .toSolrParams(params)));
+                        .toSolrParams(params)));
             }
         }
         delById = (List<String>) namedList[0].get("delById");
@@ -190,12 +189,11 @@ public class JavaBinUpdateRequestCodec {
         doclist = (List) namedList[0].get("docs");
 
         if (doclist != null && !doclist.isEmpty()) {
-            final List<SolrInputDocument> solrInputDocs =
-                new ArrayList<SolrInputDocument>();
+            final List<SolrInputDocument> solrInputDocs = new ArrayList<SolrInputDocument>();
             for (final Object o : doclist) {
                 if (o instanceof List) {
-                    solrInputDocs.add(this
-                        .listToSolrInputDocument((List<NamedList>) o));
+                    solrInputDocs
+                            .add(listToSolrInputDocument((List<NamedList>) o));
                 } else {
                     solrInputDocs.add((SolrInputDocument) o);
                 }
@@ -223,12 +221,10 @@ public class JavaBinUpdateRequestCodec {
             final NamedList nl = namedList.get(i);
             if (i == 0) {
                 doc.setDocumentBoost(nl.getVal(0) == null ? 1.0f : (Float) nl
-                    .getVal(0));
+                        .getVal(0));
             } else {
-                doc.addField(
-                    (String) nl.getVal(0),
-                    nl.getVal(1),
-                    nl.getVal(2) == null ? 1.0f : (Float) nl.getVal(2));
+                doc.addField((String) nl.getVal(0), nl.getVal(1),
+                        nl.getVal(2) == null ? 1.0f : (Float) nl.getVal(2));
             }
         }
         return doc;
