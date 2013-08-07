@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.codelibs</groupId>
     <artifactId>elasticsearch-mocksolrplugin</artifactId>
-    <version>1.2.0-SNAPSHOT</version>
+    <version>1.2.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <description>Use Solr clients/tools with ElasticSearch</description>
     <inceptionYear>2011</inceptionYear>
@@ -22,8 +22,8 @@
     </scm>
 
     <properties>
-        <elasticsearch.version>0.90.2</elasticsearch.version>
-        <solr.version>4.3.1</solr.version>
+        <elasticsearch.version>0.90.3</elasticsearch.version>
+        <solr.version>4.4.0</solr.version>
     </properties>
 
     <distributionManagement>

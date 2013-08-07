@@ -28,7 +28,7 @@ import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
-import org.apache.solr.common.util.FastInputStream;
+import org.apache.solr.common.util.DataInputInputStream;
 import org.apache.solr.common.util.JavaBinCodec;
 import org.apache.solr.common.util.NamedList;
 
@@ -111,7 +111,7 @@ public class JavaBinUpdateRequestCodec {
             private boolean seenOuterMostDocIterator = false;
 
             @Override
-            public NamedList readNamedList(final FastInputStream dis)
+            public NamedList readNamedList(final DataInputInputStream dis)
                     throws IOException {
                 final int sz = readSize(dis);
                 final NamedList nl = new NamedList();
@@ -127,7 +127,7 @@ public class JavaBinUpdateRequestCodec {
             }
 
             @Override
-            public List readIterator(final FastInputStream fis)
+            public List readIterator(final DataInputInputStream fis)
                     throws IOException {
 
                 // default behavior for reading any regular Iterator in the
@@ -142,7 +142,7 @@ public class JavaBinUpdateRequestCodec {
                 return readOuterMostDocIterator(fis);
             }
 
-            private List readOuterMostDocIterator(final FastInputStream fis)
+            private List readOuterMostDocIterator(final DataInputInputStream fis)
                     throws IOException {
                 final NamedList params = (NamedList) namedList[0].getVal(0);
                 updateRequest.setParams(new ModifiableSolrParams(SolrParams
