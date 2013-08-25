@@ -10,7 +10,7 @@
             <outputDirectory>/</outputDirectory>
             <useProjectArtifact>true</useProjectArtifact>
             <includes>
-                <include>org.codelibs:elasticsearch-mocksolrplugin</include>
+                <include>org.codelibs:elasticsearch-solr-api</include>
                 <include>org.apache.solr:solr-core</include>
                 <include>org.apache.solr:solr-solrj</include>
                 <include>org.noggit:noggit</include>

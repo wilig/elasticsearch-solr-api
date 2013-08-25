@@ -303,17 +303,20 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
             @Nullable final QueryParseContext context) {
         final long now = context == null ? System.currentTimeMillis() : context
                 .nowInMillis();
-        return NumericRangeQuery
-                .newLongRange(
-                        names.indexName(),
-                        precisionStep,
-                        lowerTerm == null ? null : parseStringValue(
-                                convertToString(lowerTerm), now),
-                        upperTerm == null ? null : includeUpper
-                                && parseUpperInclusive ? parseStringValue(
-                                convertToString(upperTerm), now)
-                                : parseStringValue(convertToString(upperTerm),
-                                        now), includeLower, includeUpper);
+		Long min = null;
+		if (lowerTerm != null) {
+			min = parseStringValue(convertToString(lowerTerm), now);
+		}
+		Long max = null;
+		if (upperTerm != null) {
+			if (includeUpper && parseUpperInclusive) {
+				max = parseStringValue(convertToString(upperTerm), now);
+			} else {
+				max = parseStringValue(convertToString(upperTerm), now);
+			}
+		}
+		return NumericRangeQuery.newLongRange(names.indexName(), precisionStep,
+				min, max, includeLower, includeUpper);
     }
 
     @Override
@@ -322,17 +325,20 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
             @Nullable final QueryParseContext context) {
         final long now = context == null ? System.currentTimeMillis() : context
                 .nowInMillis();
-        return NumericRangeFilter
-                .newLongRange(
-                        names.indexName(),
-                        precisionStep,
-                        lowerTerm == null ? null : parseStringValue(
-                                convertToString(lowerTerm), now),
-                        upperTerm == null ? null : includeUpper
-                                && parseUpperInclusive ? parseStringValue(
-                                convertToString(upperTerm), now)
-                                : parseStringValue(convertToString(upperTerm),
-                                        now), includeLower, includeUpper);
+		Long min = null;
+		if (lowerTerm != null) {
+			min = parseStringValue(convertToString(lowerTerm), now);
+		}
+		Long max = null;
+		if (upperTerm != null) {
+			if (includeUpper && parseUpperInclusive) {
+				max = parseStringValue(convertToString(upperTerm), now);
+			} else {
+				max = parseStringValue(convertToString(upperTerm), now);
+			}
+		}
+		return NumericRangeFilter.newLongRange(names.indexName(),
+				precisionStep, min, max, includeLower, includeUpper);
     }
 
     @Override
@@ -342,16 +348,21 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
             @Nullable final QueryParseContext context) {
         final long now = context == null ? System.currentTimeMillis() : context
                 .nowInMillis();
-        return NumericRangeFieldDataFilter
-                .newLongRange(
-                        (IndexNumericFieldData) fieldData.getForField(this),
-                        lowerTerm == null ? null : parseStringValue(
-                                convertToString(lowerTerm), now),
-                        upperTerm == null ? null : includeUpper
-                                && parseUpperInclusive ? parseStringValue(
-                                convertToString(upperTerm), now)
-                                : parseStringValue(convertToString(upperTerm),
-                                        now), includeLower, includeUpper);
+		Long lowerVal = null;
+		if (lowerTerm != null) {
+			lowerVal = parseStringValue(convertToString(lowerTerm), now);
+		}
+		Long upperVal = null;
+		if (upperTerm != null) {
+			if (includeUpper && parseUpperInclusive) {
+				upperVal = parseStringValue(convertToString(upperTerm), now);
+			} else {
+				upperVal = parseStringValue(convertToString(upperTerm), now);
+			}
+		}
+		return NumericRangeFieldDataFilter.newLongRange(
+				(IndexNumericFieldData) fieldData.getForField(this), lowerVal,
+				upperVal, includeLower, includeUpper);
     }
 
     @Override

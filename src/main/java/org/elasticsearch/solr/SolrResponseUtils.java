@@ -160,9 +160,10 @@ public class SolrResponseUtils {
                 final NamedList<Object> docHighlights = new SimpleOrderedMap<Object>();
                 final Map<String, HighlightField> highlightFields = hit
                         .getHighlightFields();
-                for (final String fieldName : highlightFields.keySet()) {
-                    final HighlightField highlightField = highlightFields
-                            .get(fieldName);
+				for (final Map.Entry<String, HighlightField> entry : highlightFields
+						.entrySet()) {
+					final String fieldName = entry.getKey();
+					final HighlightField highlightField = entry.getValue();
                     final Text[] fragments = highlightField.getFragments();
                     final List<String> fragmentList = new ArrayList<String>(
                             fragments.length);
@@ -266,8 +267,10 @@ public class SolrResponseUtils {
             final Map<String, Object> source = hit.sourceAsMap();
             if (fields.isEmpty()) {
                 if (source != null) {
-                    for (final String sourceField : source.keySet()) {
-                        Object fieldValue = source.get(sourceField);
+					for (final Map.Entry<String, Object> entry : source
+							.entrySet()) {
+						final String sourceField = entry.getKey();
+						Object fieldValue = entry.getValue();
 
                         // ES does not return date fields as Date Objects
                         // detect if the string is a date, and if so
