@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <name>elasticsearch-mocksolrplugin</name>
+    <name>elasticsearch-solr-api</name>
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.codelibs</groupId>
-    <artifactId>elasticsearch-mocksolrplugin</artifactId>
+    <artifactId>elasticsearch-solr-api</artifactId>
     <version>1.2.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <description>Use Solr clients/tools with ElasticSearch</description>
@@ -16,9 +16,9 @@
         </license>
     </licenses>
     <scm>
-        <connection>scm:git:git@github.com:marevol/elasticsearch-mocksolrplugin.git</connection>
-        <developerConnection>scm:git:git@github.com:marevol/elasticsearch-mocksolrplugin.git</developerConnection>
-        <url>https://github.com/marevol/elasticsearch-mocksolrplugin</url>
+        <connection>scm:git:git@github.com:codelibs/elasticsearch-solr-api.git</connection>
+        <developerConnection>scm:git:git@github.com:codelibs/elasticsearch-solr-api.git</developerConnection>
+        <url>https://github.com/codelibs/elasticsearch-solr-api</url>
     </scm>
 
     <properties>

@@ -1,14 +1,14 @@
-# elasticsearch mocksolrplugin
+# elasticsearch Solr API
 
-| Mock Solr Plugin | elasticsearch | Lucene/Solr |
-|:----------------:|:-------------:|:-----------:|
-| master           | 0.90.3        | 4.4.0       |
-| develop          | 0.90.X        | 4.4.0       |
+| Solr API | elasticsearch | Lucene/Solr |
+|:--------:|:-------------:|:-----------:|
+| master   | 0.90.3        | 4.4.0       |
+| develop  | 0.90.X        | 4.4.0       |
 
 ## Overview
 
 This plugin allows you to use elasticsearch with Solr interfaces.
-The original project is [here](https://github.com/mattweber/elasticsearch-mocksolrplugin).
+The original project is [mocksolrplugin](https://github.com/mattweber/elasticsearch-mocksolrplugin), this project forked from it and was renamed in order to avoid confusion about each projects.
 
 ## Supported Solr features
 
@@ -26,7 +26,7 @@ The original project is [here](https://github.com/mattweber/elasticsearch-mockso
 
 ## Download
 
-Our plugin download site is [here](http://maven.codelibs.org/org/codelibs/elasticsearch-mocksolrplugin/).
+Our plugin download site is [here](http://maven.codelibs.org/org/codelibs/elasticsearch-solr-api/).
 
 ## How do you build this plugin?
 
@@ -37,7 +37,7 @@ Use maven to build the package
 Then install the plugin
 
     # if you've built it locally
-    $ES_HOME/bin/plugin -url file:./target/releases/elasticsearch-mocksolrplugin-*.zip -install mocksolrplugin
+    $ES_HOME/bin/plugin -url file:./target/releases/elasticsearch-solr-api-*.zip -install solr-api
 
 ## How to use this plugin.
 
