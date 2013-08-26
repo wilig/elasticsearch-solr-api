@@ -2,8 +2,9 @@
 
 | Solr API | elasticsearch | Lucene/Solr |
 |:--------:|:-------------:|:-----------:|
-| master   | 0.90.3        | 4.4.0       |
 | develop  | 0.90.X        | 4.4.0       |
+| master   | 0.90.3        | 4.4.0       |
+| 1.2.1    | 0.90.3        | 4.4.0       |
 
 ## Overview
 
