@@ -24,45 +24,10 @@ import static org.elasticsearch.common.unit.TimeValue.*;
 public class ExtendedRestRequest implements RestRequest {
     private RestRequest parent;
 
-    private Map<String, List<String>> paramMap;
+    private volatile Map<String, List<String>> paramMap;
 
     public ExtendedRestRequest(final RestRequest request) {
         parent = request;
-
-        final StringBuilder uriBuf = new StringBuilder(200);
-        uriBuf.append(request.uri());
-        final boolean isPost = request.method() == RestRequest.Method.POST;
-        if (isPost) {
-            if (request.uri().indexOf('?') >= 0) {
-                uriBuf.append('&');
-            } else {
-                uriBuf.append('?');
-            }
-            uriBuf.append(request.content().toUtf8());
-        }
-
-        final String uri = uriBuf.toString();
-        final int pathLength = getPath(uri).length();
-        if (uri.length() == pathLength) {
-            paramMap = new LinkedHashMap<String, List<String>>();
-        } else {
-
-            String charset = request.header("Accept-Charset");
-            if (charset == null) {
-                charset = "UTF-8";
-            }
-
-            paramMap = decodeParams(uri.substring(pathLength + 1), charset);
-        }
-
-        for (final Map.Entry<String, String> entry : request.params()
-                .entrySet()) {
-            if (!paramMap.containsKey(entry.getKey())) {
-                final List<String> list = new ArrayList<String>(1);
-                list.add(entry.getValue());
-                paramMap.put(entry.getKey(), list);
-            }
-        }
     }
 
     private String getPath(final String uri) {
@@ -143,7 +108,7 @@ public class ExtendedRestRequest implements RestRequest {
 
     @Override
     public String param(final String key, final String defaultValue) {
-        final List<String> list = paramMap.get(key);
+        final List<String> list = getParameterMap().get(key);
         if (list != null && !list.isEmpty()) {
             return list.get(0);
         }
@@ -192,7 +157,7 @@ public class ExtendedRestRequest implements RestRequest {
 
     @Override
     public boolean hasParam(final String key) {
-        return paramMap.containsKey(key);
+        return getParameterMap().containsKey(key);
     }
 
     @Override
@@ -203,7 +168,7 @@ public class ExtendedRestRequest implements RestRequest {
     @Override
     public String[] paramAsStringArray(final String key,
             final String[] defaultValue) {
-        final List<String> list = paramMap.get(key);
+        final List<String> list = getParameterMap().get(key);
         if (list != null) {
             return list.toArray(new String[list.size()]);
         }
@@ -299,7 +264,7 @@ public class ExtendedRestRequest implements RestRequest {
     @Override
     public Map<String, String> params() {
         final Map<String, String> map = new HashMap<String, String>();
-        for (final Map.Entry<String, List<String>> entry : paramMap.entrySet()) {
+        for (final Map.Entry<String, List<String>> entry : getParameterMap().entrySet()) {
             final List<String> valueList = entry.getValue();
             if (valueList != null) {
                 final StringBuilder buf = new StringBuilder();
@@ -316,4 +281,60 @@ public class ExtendedRestRequest implements RestRequest {
         }
         return map;
     }
+
+    private Map<String, List<String>> getParameterMap(){
+        if(paramMap == null){
+            synchronized (this) {
+                initParameterMap();
+            }
+        }
+        return paramMap;
+    }
+
+    private boolean isAppendPostData(String contentType) {
+        if (contentType == null) {
+            return true;
+        }
+        return contentType.indexOf("application/javabin") < 0
+                && contentType.indexOf("application/xml") < 0;
+    }
+
+    private void initParameterMap() {
+        final StringBuilder uriBuf = new StringBuilder(200);
+        uriBuf.append(parent.uri());
+        final boolean isPost = parent.method() == RestRequest.Method.POST;
+        if (isPost && isAppendPostData(parent.header("Content-Type"))) {
+            if (parent.uri().indexOf('?') >= 0) {
+                uriBuf.append('&');
+            } else {
+                uriBuf.append('?');
+            }
+            uriBuf.append(parent.content().toUtf8());
+        }
+
+        Map<String, List<String>> requestParamMap = new HashMap<String, List<String>>();
+        final String uri = uriBuf.toString();
+        final int pathLength = getPath(uri).length();
+        if (uri.length() == pathLength) {
+            requestParamMap = new LinkedHashMap<String, List<String>>();
+        } else {
+
+            String charset = parent.header("Accept-Charset");
+            if (charset == null) {
+                charset = "UTF-8";
+            }
+
+            requestParamMap = decodeParams(uri.substring(pathLength + 1), charset);
+        }
+
+        for (final Map.Entry<String, String> entry : parent.params().entrySet()) {
+            if (!requestParamMap.containsKey(entry.getKey())) {
+                final List<String> list = new ArrayList<String>(1);
+                list.add(entry.getValue());
+                requestParamMap.put(entry.getKey(), list);
+            }
+        }
+        paramMap = requestParamMap;
+    }
+
 }
