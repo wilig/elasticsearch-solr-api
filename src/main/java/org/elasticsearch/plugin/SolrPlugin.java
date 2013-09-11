@@ -10,19 +10,18 @@ import org.elasticsearch.rest.SolrSearchRestAction;
 import org.elasticsearch.rest.SolrUpdateRestAction;
 
 public class SolrPlugin extends AbstractPlugin {
+
     /*
      * (non-Javadoc)
-     * 
      * @see org.elasticsearch.plugins.Plugin#name()
      */
     @Override
     public String name() {
-        return "SolrPlugin";
+        return "SolrAPIPlugin";
     }
 
     /*
      * (non-Javadoc)
-     * 
      * @see org.elasticsearch.plugins.Plugin#description()
      */
     @Override
@@ -30,19 +29,9 @@ public class SolrPlugin extends AbstractPlugin {
         return "This plugin provides Solr interface on the elasticsearch.";
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see
-     * org.elasticsearch.plugins.AbstractPlugin#processModule(org.elasticsearch
-     * .common.inject.Module)
-     */
-    @Override
-    public void processModule(final Module module) {
-        if (module instanceof RestModule) {
-            ((RestModule) module).addRestAction(SolrUpdateRestAction.class);
-            ((RestModule) module).addRestAction(SolrSearchRestAction.class);
-        }
+    public void onModule(final RestModule module) {
+        module.addRestAction(SolrUpdateRestAction.class);
+        module.addRestAction(SolrSearchRestAction.class);
     }
 
     @Override
