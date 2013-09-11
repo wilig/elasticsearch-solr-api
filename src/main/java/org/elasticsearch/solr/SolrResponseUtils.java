@@ -118,7 +118,7 @@ public class SolrResponseUtils {
         // generate response header
         final NamedList<Object> responseHeader = new SimpleOrderedMap<Object>();
         responseHeader.add("status", 0);
-        responseHeader.add("QTime", response.getTookInMillis());
+        responseHeader.add("QTime", (int) response.getTookInMillis());
 
         // echo params in header
         final NamedList<Object> solrParams = new SimpleOrderedMap<Object>();

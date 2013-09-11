@@ -480,7 +480,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         final NamedList<Object> solrResponse = new SimpleOrderedMap<Object>();
         final NamedList<Object> responseHeader = new SimpleOrderedMap<Object>();
         responseHeader.add("status", status);
-        responseHeader.add("QTime", qTime);
+        responseHeader.add("QTime", (int) qTime);
         solrResponse.add("responseHeader", responseHeader);
         if (errorResponse != null) {
             solrResponse.add("error", errorResponse);
