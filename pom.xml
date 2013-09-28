@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <name>elasticsearch-solr-api</name>
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.codelibs</groupId>
     <artifactId>elasticsearch-solr-api</artifactId>
-    <version>1.2.1</version>
+    <version>1.2.2-SNAPSHOT</version>
     <packaging>jar</packaging>
+    <name>Elasticsearch Solr API</name>
     <description>Use Solr clients/tools with ElasticSearch</description>
     <inceptionYear>2011</inceptionYear>
+    <url>https://github.com/codelibs/elasticsearch-solr-api</url>
     <licenses>
         <license>
             <name>The Apache Software License, Version 2.0</name>
@@ -18,33 +19,24 @@
     <scm>
         <connection>scm:git:git@github.com:codelibs/elasticsearch-solr-api.git</connection>
         <developerConnection>scm:git:git@github.com:codelibs/elasticsearch-solr-api.git</developerConnection>
-        <url>https://github.com/codelibs/elasticsearch-solr-api</url>
+        <url>git@github.com:codelibs/elasticsearch-solr-api.git</url>
     </scm>
-
+    <parent>
+        <groupId>org.sonatype.oss</groupId>
+        <artifactId>oss-parent</artifactId>
+        <version>7</version>
+    </parent>
     <properties>
-        <elasticsearch.version>0.90.3</elasticsearch.version>
+        <elasticsearch.version>0.90.5</elasticsearch.version>
         <solr.version>4.4.0</solr.version>
     </properties>
-
-    <distributionManagement>
-        <repository>
-            <id>codelibs-repository</id>
-            <url>ftp://maven.codelibs.org/home/codelibs/maven/</url>
-        </repository>
-        <site>
-            <id>codelibs-site</id>
-            <url>ftp://maven.codelibs.org/home/codelibs/project/solrlib/</url>
-        </site>
-    </distributionManagement>
-
-    <repositories>
-        <repository>
-            <id>codelibs.org</id>
-            <name>CodeLibs Repository</name>
-            <url>http://maven.codelibs.org/</url>
-        </repository>
-    </repositories>
-
+    <developers>
+        <developer>
+            <id>marevol</id>
+            <name>Shinsuke Sugaya</name>
+            <email>shinsuke(at)yahoo.co.jp</email>
+        </developer>
+    </developers>
     <dependencies>
         <dependency>
             <groupId>org.elasticsearch</groupId>
@@ -52,20 +44,17 @@
             <version>${elasticsearch.version}</version>
             <scope>provided</scope>
         </dependency>
-
         <dependency>
             <groupId>org.apache.solr</groupId>
             <artifactId>solr-core</artifactId>
             <version>${solr.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.apache.solr</groupId>
             <artifactId>solr-solrj</artifactId>
             <version>${solr.version}</version>
         </dependency>
     </dependencies>
-
     <build>
         <plugins>
             <plugin>
@@ -118,12 +107,5 @@
                 </executions>
             </plugin>
         </plugins>
-        <extensions>
-            <extension>
-                <groupId>org.apache.maven.wagon</groupId>
-                <artifactId>wagon-ftp</artifactId>
-                <version>2.4</version>
-            </extension>
-        </extensions>
     </build>
 </project>

@@ -19,6 +19,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang.StringUtils;
 import org.apache.solr.client.solrj.request.AbstractUpdateRequest.ACTION;
 import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
@@ -46,12 +47,15 @@ import org.elasticsearch.action.support.replication.ReplicationType;
 import org.elasticsearch.action.support.replication.ShardReplicationOperationRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.Requests;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.solr.JavaBinUpdateRequestCodec;
 import org.elasticsearch.solr.SolrResponseUtils;
 
 public class SolrUpdateRestAction extends BaseRestHandler {
+
+    private static final String TRUE = "true";
 
     // fields in the Solr input document to scan for a document id
     private static final String[] DEFAULT_ID_FIELDS = { "id", "docid",
@@ -108,6 +112,14 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
         // register update handlers
         // specifying and index and type is optional
+        restController.registerHandler(RestRequest.Method.GET,
+                "/_solr/update", this);
+        restController.registerHandler(RestRequest.Method.GET,
+                "/_solr/update/{handler}", this);
+        restController.registerHandler(RestRequest.Method.GET,
+                "/{index}/_solr/update", this);
+        restController.registerHandler(RestRequest.Method.GET,
+                "/{index}/{type}/_solr/update", this);
         restController.registerHandler(RestRequest.Method.POST,
                 "/_solr/update", this);
         restController.registerHandler(RestRequest.Method.POST,
@@ -157,13 +169,25 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         final List<DeleteByQueryRequest> deleteQueryList = new ArrayList<DeleteByQueryRequest>();
 
         // parse and handle the content
-        if (SolrPluginConstants.XML_FORMAT_TYPE.equals(requestType)) {
+        BytesReference content = requestEx.content();
+        if (content.length() == 0) {
+            if (TRUE.equalsIgnoreCase(requestEx.param("commit"))
+                    || TRUE.equalsIgnoreCase(requestEx.param("softCommit"))
+                    || TRUE.equalsIgnoreCase(requestEx.param("prepareCommit"))
+                    || StringUtils.isNotBlank(requestEx.param("commitWithin"))) {
+                isCommit = true;
+            } else if (TRUE.equalsIgnoreCase(requestEx.param("optimize"))) {
+                isOptimize = true;
+            } else if (TRUE.equalsIgnoreCase(requestEx.param("rollback"))) {
+                isCommit = true; // rollback is not supported
+            }
+        } else if (SolrPluginConstants.XML_FORMAT_TYPE.equals(requestType)) {
             // XML Content
             XMLStreamReader parser = null;
             try {
                 // create parser for the content
-                parser = inputFactory.createXMLStreamReader(new StringReader(
-                        requestEx.content().toUtf8()));
+                 parser = inputFactory.createXMLStreamReader(new StringReader(
+                        content.toUtf8()));
 
                 // parse the xml
                 // we only care about doc and delete tags for now
@@ -218,6 +242,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 } catch (final IOException e1) {
                     logger.error("Failed to send error response", e1);
                 }
+                return;
             } finally {
                 if (parser != null) {
                     try {
@@ -233,9 +258,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 // We will use the JavaBin codec from solrj
                 // unmarshal the input to a SolrUpdate request
                 final JavaBinUpdateRequestCodec codec = new JavaBinUpdateRequestCodec();
-                final UpdateRequest req = codec
-                        .unmarshal(new ByteArrayInputStream(requestEx.content()
-                                .toBytes()), null);
+                final UpdateRequest req = codec.unmarshal(
+                        new ByteArrayInputStream(content.toBytes()), null);
 
                 // Get the list of documents to index out of the UpdateRequest
                 // Add each document to the bulk request
@@ -277,6 +301,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 } catch (final IOException e1) {
                     logger.error("Failed to send error response", e1);
                 }
+                return;
             }
         }
 
@@ -480,7 +505,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         final NamedList<Object> solrResponse = new SimpleOrderedMap<Object>();
         final NamedList<Object> responseHeader = new SimpleOrderedMap<Object>();
         responseHeader.add("status", status);
-        responseHeader.add("QTime", qTime);
+        responseHeader.add("QTime", (int) qTime);
         solrResponse.add("responseHeader", responseHeader);
         if (errorResponse != null) {
             solrResponse.add("error", errorResponse);
