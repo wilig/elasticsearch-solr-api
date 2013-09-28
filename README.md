@@ -26,14 +26,18 @@ The original project is [mocksolrplugin](https://github.com/mattweber/elasticsea
  * faceting (facet, facet.field, facet.query, facet.sort, facet.limit)
 * XML and JavaBin request and response formats
 
-## Download
+## Install Solr API plugin
 
-Our plugin download site is [here](http://maven.codelibs.org/org/codelibs/elasticsearch-solr-api/).
+Type the following command:
+
+    cd $ES_HOME
+    ./bin/plugin -install org.codelibs/elasticsearch-solr-api/1.2.2
 
 ## How do you build this plugin?
 
 Use maven to build the package
 
+    git clone https://github.com/codelibs/elasticsearch-solr-api.git
     mvn package
 
 Then install the plugin
