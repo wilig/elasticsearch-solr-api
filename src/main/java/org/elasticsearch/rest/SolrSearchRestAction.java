@@ -314,10 +314,10 @@ public class SolrSearchRestAction extends BaseRestHandler {
         final String type = request.param("type", defaultTypeName);
 
         // Build the search Request
-        final String[] indices = RestActions.splitIndices(index);
+        final String[] indices = Strings.splitStringByCommaToArray(index);
         final SearchRequest searchRequest = new SearchRequest(indices);
         searchRequest.extraSource(searchSourceBuilder);
-        searchRequest.types(RestActions.splitTypes(type));
+        searchRequest.types(Strings.splitStringByCommaToArray(type));
 
         return searchRequest;
     }

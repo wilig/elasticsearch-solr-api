@@ -22,7 +22,7 @@
     </scm>
 
     <properties>
-        <elasticsearch.version>0.90.3</elasticsearch.version>
+        <elasticsearch.version>0.90.5</elasticsearch.version>
         <solr.version>4.4.0</solr.version>
     </properties>
 
