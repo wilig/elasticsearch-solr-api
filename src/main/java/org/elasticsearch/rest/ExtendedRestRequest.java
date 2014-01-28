@@ -9,7 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.elasticsearch.ElasticSearchIllegalArgumentException;
+import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
@@ -21,7 +21,7 @@ import static org.elasticsearch.common.unit.TimeValue.*;
  * @author shinsuke
  * 
  */
-public class ExtendedRestRequest implements RestRequest {
+public class ExtendedRestRequest extends RestRequest {
     private RestRequest parent;
 
     private volatile Map<String, List<String>> paramMap;
@@ -131,11 +131,6 @@ public class ExtendedRestRequest implements RestRequest {
     }
 
     @Override
-    public String path() {
-        return parent.path();
-    }
-
-    @Override
     public boolean hasContent() {
         return parent.hasContent();
     }
@@ -153,6 +148,11 @@ public class ExtendedRestRequest implements RestRequest {
     @Override
     public String header(final String name) {
         return parent.header(name);
+    }
+
+    @Override
+    public Iterable<Map.Entry<String, String>> headers() {
+        return parent.headers();
     }
 
     @Override
@@ -185,7 +185,7 @@ public class ExtendedRestRequest implements RestRequest {
         try {
             return Float.parseFloat(value);
         } catch (final NumberFormatException e) {
-            throw new ElasticSearchIllegalArgumentException(
+            throw new ElasticsearchIllegalArgumentException(
                     "Failed to parse float parameter [" + key
                             + "] with value [" + value + "]", e);
         }
@@ -201,7 +201,7 @@ public class ExtendedRestRequest implements RestRequest {
         try {
             return Integer.parseInt(value);
         } catch (final NumberFormatException e) {
-            throw new ElasticSearchIllegalArgumentException(
+            throw new ElasticsearchIllegalArgumentException(
                     "Failed to parse int parameter [" + key + "] with value ["
                             + value + "]", e);
         }
@@ -217,7 +217,7 @@ public class ExtendedRestRequest implements RestRequest {
         try {
             return Long.parseLong(value);
         } catch (final NumberFormatException e) {
-            throw new ElasticSearchIllegalArgumentException(
+            throw new ElasticsearchIllegalArgumentException(
                     "Failed to parse long parameter [" + key + "] with value ["
                             + value + "]", e);
         }
@@ -233,7 +233,7 @@ public class ExtendedRestRequest implements RestRequest {
         try {
             return Boolean.parseBoolean(value);
         } catch (final NumberFormatException e) {
-            throw new ElasticSearchIllegalArgumentException(
+            throw new ElasticsearchIllegalArgumentException(
                     "Failed to parse boolean parameter [" + key
                             + "] with value [" + value + "]", e);
         }

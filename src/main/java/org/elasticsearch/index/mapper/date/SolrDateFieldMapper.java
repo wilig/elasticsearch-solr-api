@@ -9,10 +9,7 @@ import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
-import java.util.Map;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.lucene.document.Field;
@@ -23,7 +20,7 @@ import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.NumericUtils;
-import org.elasticsearch.ElasticSearchIllegalArgumentException;
+import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.Explicit;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.Numbers;
@@ -32,11 +29,12 @@ import org.elasticsearch.common.joda.DateMathParser;
 import org.elasticsearch.common.joda.FormatDateTimeFormatter;
 import org.elasticsearch.common.joda.Joda;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.unit.Fuzziness;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.analysis.NamedAnalyzer;
 import org.elasticsearch.index.analysis.NumericDateAnalyzer;
+import org.elasticsearch.index.codec.docvaluesformat.DocValuesFormatProvider;
 import org.elasticsearch.index.codec.postingsformat.PostingsFormatProvider;
 import org.elasticsearch.index.fielddata.FieldDataType;
 import org.elasticsearch.index.fielddata.IndexFieldDataService;
@@ -121,9 +119,10 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
             fieldType.setOmitNorms(fieldType.omitNorms() && boost == 1.0f);
             final SolrDateFieldMapper fieldMapper = new SolrDateFieldMapper(
                     buildNames(context), dateTimeFormatter, precisionStep,
-                    boost, fieldType, nullValue, timeUnit, parseUpperInclusive,
-                    this.ignoreMalformed(context), provider, similarity,
-                    fieldDataSettings);
+                    boost, fieldType, docValues, nullValue, timeUnit, parseUpperInclusive,
+                    this.ignoreMalformed(context), coerce(context), postingsProvider, docValuesProvider,
+                    similarity, normsLoading, fieldDataSettings, context.indexSettings(),
+                    multiFieldsBuilder.build(this, context));
             fieldMapper.includeInAll(includeInAll);
             return fieldMapper;
         }
@@ -169,19 +168,26 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     protected SolrDateFieldMapper(final Names names,
             final FormatDateTimeFormatter dateTimeFormatter,
             final int precisionStep, final float boost,
-            final FieldType fieldType, final String nullValue,
+            final FieldType fieldType, final Boolean docValues,
+            final String nullValue,
             final TimeUnit timeUnit, final boolean parseUpperInclusive,
             final Explicit<Boolean> ignoreMalformed,
-            final PostingsFormatProvider provider,
+            final Explicit<Boolean> coerce,
+            final PostingsFormatProvider postingsProvider,
+            final DocValuesFormatProvider docValuesProvider,
             final SimilarityProvider similarity,
-            @Nullable final Settings fieldDataSettings) {
-        super(names, precisionStep, boost, fieldType, ignoreMalformed,
+            final Loading normsLoading,
+            @Nullable final Settings fieldDataSettings,
+            final Settings indexSettings,
+            final MultiFields multiFields) {
+        super(names, precisionStep, boost, fieldType, docValues, ignoreMalformed, coerce,
                 new NamedAnalyzer("_solr_date/" + precisionStep,
                         new NumericDateAnalyzer(precisionStep,
                                 dateTimeFormatter.parser())),
                 new NamedAnalyzer("_solr_date/max", new NumericDateAnalyzer(
                         Integer.MAX_VALUE, dateTimeFormatter.parser())),
-                provider, similarity, fieldDataSettings);
+                postingsProvider, docValuesProvider, similarity, normsLoading,
+            fieldDataSettings, indexSettings, multiFields);
         this.dateTimeFormatter = dateTimeFormatter;
         this.nullValue = nullValue;
         this.timeUnit = timeUnit;
@@ -262,17 +268,11 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     }
 
     @Override
-    public Query fuzzyQuery(final String value, final String minSim,
+    public Query fuzzyQuery(final String value, final Fuzziness fuzziness,
             final int prefixLength, final int maxExpansions,
             final boolean transpositions) {
         final long iValue = parseStringValue(value, System.currentTimeMillis());
-        long iSim;
-        try {
-            iSim = TimeValue.parseTimeValue(minSim, null).millis();
-        } catch (final Exception e) {
-            // not a time format
-            iSim = (long) Double.parseDouble(minSim);
-        }
+        long iSim = fuzziness.asLong();
         return NumericRangeQuery.newLongRange(names.indexName(), precisionStep,
                 iValue - iSim, iValue + iSim, true, true);
     }
@@ -382,7 +382,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     }
 
     @Override
-    protected Field innerParseCreateField(final ParseContext context)
+    protected void innerParseCreateField(final ParseContext context, final List<Field> fields)
             throws IOException {
         String dateAsString = null;
         Long value = null;
@@ -403,7 +403,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
             if (token == XContentParser.Token.VALUE_NULL) {
                 dateAsString = nullValue;
             } else if (token == XContentParser.Token.VALUE_NUMBER) {
-                value = parser.longValue();
+                value = parser.longValue(coerce.value());
             } else if (token == XContentParser.Token.START_OBJECT) {
                 String currentFieldName = null;
                 while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
@@ -415,7 +415,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                             if (token == XContentParser.Token.VALUE_NULL) {
                                 dateAsString = nullValue;
                             } else if (token == XContentParser.Token.VALUE_NUMBER) {
-                                value = parser.longValue();
+                                value = parser.longValue(coerce.value());
                             } else {
                                 dateAsString = parser.text();
                             }
@@ -423,7 +423,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                                 || "_boost".equals(currentFieldName)) {
                             boost = parser.floatValue();
                         } else {
-                            throw new ElasticSearchIllegalArgumentException(
+                            throw new ElasticsearchIllegalArgumentException(
                                     "unknown property [" + currentFieldName
                                             + "]");
                         }
@@ -434,25 +434,26 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
             }
         }
 
+        if (dateAsString != null) {
+            assert value == null;
+            if (context.includeInAll(includeInAll, this)) {
+                context.allEntries().addText(names.fullName(), dateAsString, boost);
+            }
+            value = parseStringValue(dateAsString, System.currentTimeMillis());
+        }
+
         if (value != null) {
-            final LongFieldMapper.CustomLongNumericField field = new LongFieldMapper.CustomLongNumericField(
-                    this, timeUnit.toMillis(value), fieldType);
-            field.setBoost(boost);
-            return field;
+            if (fieldType.indexed() || fieldType.stored()) {
+                final LongFieldMapper.CustomLongNumericField field = new LongFieldMapper.CustomLongNumericField(
+                    this, value, fieldType);
+                field.setBoost(boost);
+                fields.add(field);
+            }
+            if (hasDocValues()) {
+                addDocValue(context, value);
+            }
         }
 
-        if (dateAsString == null) {
-            return null;
-        }
-        if (context.includeInAll(includeInAll, this)) {
-            context.allEntries().addText(names.fullName(), dateAsString, boost);
-        }
-
-        value = parseStringValue(dateAsString, System.currentTimeMillis());
-        final LongFieldMapper.CustomLongNumericField field = new LongFieldMapper.CustomLongNumericField(
-                this, value, fieldType);
-        field.setBoost(boost);
-        return field;
     }
 
     @Override
@@ -473,9 +474,9 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     }
 
     @Override
-    protected void doXContentBody(final XContentBuilder builder)
+    protected void doXContentBody(final XContentBuilder builder, boolean includeDefaults, Params params)
             throws IOException {
-        super.doXContentBody(builder);
+        super.doXContentBody(builder, includeDefaults, params);
         if (precisionStep != org.elasticsearch.index.mapper.core.NumberFieldMapper.Defaults.PRECISION_STEP) {
             builder.field("precision_step", precisionStep);
         }
