@@ -6,7 +6,7 @@
     <version>1.2.3-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>Elasticsearch Solr API</name>
-    <description>Use Solr clients/tools with ElasticSearch</description>
+    <description>Use Solr clients/tools with Elasticsearch</description>
     <inceptionYear>2011</inceptionYear>
     <url>https://github.com/codelibs/elasticsearch-solr-api</url>
     <licenses>
@@ -27,8 +27,8 @@
         <version>7</version>
     </parent>
     <properties>
-        <elasticsearch.version>0.90.5</elasticsearch.version>
-        <solr.version>4.4.0</solr.version>
+        <elasticsearch.version>1.0.0.RC1</elasticsearch.version>
+        <solr.version>4.6.0</solr.version>
     </properties>
     <developers>
         <developer>

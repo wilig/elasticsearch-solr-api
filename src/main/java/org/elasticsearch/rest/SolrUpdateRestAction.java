@@ -26,7 +26,7 @@ import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.SolrInputField;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
-import org.elasticsearch.ElasticSearchException;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.SolrPluginConstants;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
@@ -101,7 +101,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         optimizeAsOptimize = settings.getAsBoolean("solr.optimizeAsOptimize",
                 true);
         logger.info("Solr input document id's will " + (hashIds ? "" : "not ")
-                + "be hashed to created ElasticSearch document id's");
+                + "be hashed to created Elasticsearch document id's");
 
         defaultIndexName = settings.get("solr.default.index",
                 SolrPluginConstants.DEFAULT_INDEX_NAME);
@@ -558,7 +558,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         // create the delete request object
         final DeleteByQueryRequest deleteRequest = Requests
                 .deleteByQueryRequest(index);
-        deleteRequest.query("{\"query_string\":{\"query\":\"" + query + "\"}}");
+        deleteRequest.source("{\"query_string\":{\"query\":\"" + query + "\"}}");
 
         deleteRequest.routing(request.param("routing"));
 
@@ -602,7 +602,6 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         // indexRequest.versionType(VersionType.fromString(request.param("version_type"),
         // indexRequest.versionType()));
 
-        indexRequest.percolate(request.param("percolate", null));
         indexRequest.opType(IndexRequest.OpType.INDEX);
 
         // TODO: force creation of index, do we need it?
@@ -696,7 +695,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             final char[] encodeHex = Hex.encodeHex(digest);
             return String.valueOf(encodeHex);
         } catch (final NoSuchAlgorithmException e) {
-            throw new ElasticSearchException("Failed to encode " + input, e);
+            throw new ElasticsearchException("Failed to encode " + input, e);
         }
     }
 

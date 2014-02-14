@@ -223,7 +223,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
                 filterBuilder = queryFilter(queryBuilder);
             }
 
-            searchSourceBuilder.filter(filterBuilder);
+            searchSourceBuilder.postFilter(filterBuilder);
         }
 
         // handle highlighting

@@ -19,7 +19,7 @@ import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.util.JavaBinCodec;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
-import org.elasticsearch.ElasticSearchException;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.SolrPluginConstants;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.logging.ESLogger;
@@ -66,7 +66,7 @@ public class SolrResponseUtils {
                 return new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_Z)
                         .parse(value);
             } catch (final ParseException e1) {
-                throw new ElasticSearchException("Could not parse " + value, e);
+                throw new ElasticsearchException("Could not parse " + value, e);
             }
         }
     }
@@ -409,7 +409,7 @@ public class SolrResponseUtils {
                 }
             });
         } catch (final UnsupportedEncodingException e) {
-            throw new ElasticSearchException("Unsupported encoding.", e);
+            throw new ElasticsearchException("Unsupported encoding.", e);
         }
     }
 }
