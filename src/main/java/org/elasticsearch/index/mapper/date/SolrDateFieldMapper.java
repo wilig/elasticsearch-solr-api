@@ -1,5 +1,8 @@
 package org.elasticsearch.index.mapper.date;
 
+import static org.elasticsearch.index.mapper.core.TypeParsers.parseDateTimeFormatter;
+import static org.elasticsearch.index.mapper.core.TypeParsers.parseNumberField;
+
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
@@ -9,7 +12,11 @@ import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.lucene.document.Field;
@@ -25,7 +32,6 @@ import org.elasticsearch.common.Explicit;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.Numbers;
 import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.joda.DateMathParser;
 import org.elasticsearch.common.joda.FormatDateTimeFormatter;
 import org.elasticsearch.common.joda.Joda;
 import org.elasticsearch.common.settings.Settings;
@@ -49,8 +55,6 @@ import org.elasticsearch.index.mapper.core.NumberFieldMapper;
 import org.elasticsearch.index.query.QueryParseContext;
 import org.elasticsearch.index.search.NumericRangeFieldDataFilter;
 import org.elasticsearch.index.similarity.SimilarityProvider;
-
-import static org.elasticsearch.index.mapper.core.TypeParsers.*;
 
 public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
 
@@ -122,7 +126,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                     boost, fieldType, docValues, nullValue, timeUnit, parseUpperInclusive,
                     this.ignoreMalformed(context), coerce(context), postingsProvider, docValuesProvider,
                     similarity, normsLoading, fieldDataSettings, context.indexSettings(),
-                    multiFieldsBuilder.build(this, context));
+                    multiFieldsBuilder.build(this, context), copyTo);
             fieldMapper.includeInAll(includeInAll);
             return fieldMapper;
         }
@@ -159,8 +163,6 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
 
     private final boolean parseUpperInclusive;
 
-    private final DateMathParser dateMathParser;
-
     private String nullValue;
 
     protected final TimeUnit timeUnit;
@@ -169,30 +171,28 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
             final FormatDateTimeFormatter dateTimeFormatter,
             final int precisionStep, final float boost,
             final FieldType fieldType, final Boolean docValues,
-            final String nullValue,
-            final TimeUnit timeUnit, final boolean parseUpperInclusive,
+            final String nullValue, final TimeUnit timeUnit,
+            final boolean parseUpperInclusive,
             final Explicit<Boolean> ignoreMalformed,
             final Explicit<Boolean> coerce,
             final PostingsFormatProvider postingsProvider,
             final DocValuesFormatProvider docValuesProvider,
-            final SimilarityProvider similarity,
-            final Loading normsLoading,
+            final SimilarityProvider similarity, final Loading normsLoading,
             @Nullable final Settings fieldDataSettings,
-            final Settings indexSettings,
-            final MultiFields multiFields) {
-        super(names, precisionStep, boost, fieldType, docValues, ignoreMalformed, coerce,
-                new NamedAnalyzer("_solr_date/" + precisionStep,
-                        new NumericDateAnalyzer(precisionStep,
-                                dateTimeFormatter.parser())),
+            final Settings indexSettings, final MultiFields multiFields,
+            CopyTo copyTo) {
+        super(names, precisionStep, boost, fieldType, docValues,
+                ignoreMalformed, coerce, new NamedAnalyzer("_solr_date/"
+                        + precisionStep, new NumericDateAnalyzer(precisionStep,
+                        dateTimeFormatter.parser())),
                 new NamedAnalyzer("_solr_date/max", new NumericDateAnalyzer(
                         Integer.MAX_VALUE, dateTimeFormatter.parser())),
                 postingsProvider, docValuesProvider, similarity, normsLoading,
-            fieldDataSettings, indexSettings, multiFields);
+                fieldDataSettings, indexSettings, multiFields, copyTo);
         this.dateTimeFormatter = dateTimeFormatter;
         this.nullValue = nullValue;
         this.timeUnit = timeUnit;
         this.parseUpperInclusive = parseUpperInclusive;
-        dateMathParser = new DateMathParser(dateTimeFormatter, timeUnit);
     }
 
     @Override

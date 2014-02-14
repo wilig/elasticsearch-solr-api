@@ -1,5 +1,8 @@
 package org.elasticsearch.rest;
 
+import static org.elasticsearch.common.unit.ByteSizeValue.parseBytesSizeValue;
+import static org.elasticsearch.common.unit.TimeValue.parseTimeValue;
+
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.UnsupportedCharsetException;
@@ -13,9 +16,6 @@ import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
-
-import static org.elasticsearch.common.unit.ByteSizeValue.*;
-import static org.elasticsearch.common.unit.TimeValue.*;
 
 /**
  * @author shinsuke

@@ -2,8 +2,8 @@
 
 | Solr API | elasticsearch | Lucene/Solr |
 |:--------:|:-------------:|:-----------:|
-| develop  | 0.90.x        | 4.4.0       |
-| master   | 0.90.5        | 4.4.0       |
+| master   | 1.0.x         | 4.6.1       |
+| 1.3.0    | 1.0.0         | 4.6.1       |
 | 1.2.2    | 0.90.5        | 4.4.0       |
 | 1.2.1    | 0.90.3        | 4.4.0       |
 
@@ -30,8 +30,7 @@ The original project is [mocksolrplugin](https://github.com/mattweber/elasticsea
 
 Type the following command:
 
-    cd $ES_HOME
-    ./bin/plugin -install org.codelibs/elasticsearch-solr-api/1.2.2
+    ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.2.2
 
 ## How do you build this plugin?
 
@@ -53,3 +52,5 @@ Just point your Solr client/tool to your elasticsearch instance and appending /_
 
 * [index] - the elasticsearch index you want to index/search against. Default "solr".
 * [type] - the elasticsearch type you want to index/search against. Default "docs".
+
+
