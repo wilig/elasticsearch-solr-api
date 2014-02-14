@@ -30,19 +30,19 @@ The original project is [mocksolrplugin](https://github.com/mattweber/elasticsea
 
 Type the following command:
 
-    ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.2.2
+    $ ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.3.0
 
 ## How do you build this plugin?
 
 Use maven to build the package
 
-    git clone https://github.com/codelibs/elasticsearch-solr-api.git
-    mvn package
+    $ git clone https://github.com/codelibs/elasticsearch-solr-api.git
+    $ mvn package
 
 Then install the plugin
 
     # if you've built it locally
-    $ES_HOME/bin/plugin -url file:./target/releases/elasticsearch-solr-api-*.zip -install solr-api
+    $ $ES_HOME/bin/plugin -url file:./target/releases/elasticsearch-solr-api-*.zip -install solr-api
 
 ## How to use this plugin.
 
