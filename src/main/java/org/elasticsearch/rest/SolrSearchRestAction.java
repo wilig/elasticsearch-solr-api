@@ -146,15 +146,48 @@ public class SolrSearchRestAction extends BaseRestHandler {
         // build the query
         final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         if (q != null) {
-            QueryBuilder queryBuilder;
             if (qDsl) {
-                queryBuilder = QueryBuilders.wrapperQuery(q);
+                searchSourceBuilder.query(QueryBuilders.wrapperQuery(q));
             } else {
-                queryBuilder = QueryBuilders.queryString(q)
-                        .lowercaseExpandedTerms(lowercaseExpandedTerms)
-                        .autoGeneratePhraseQueries(autoGeneratePhraseQueries);
+                QueryBuilder queryBuilder;
+                // handler filters
+                if (fqs.length > 0) {
+                    FilterBuilder filterBuilder = null;
+
+                    // if there is more than one filter specified build
+                    // an and filter of query filters, otherwise just
+                    // build a single query filter.
+                    if (fqs.length > 1) {
+                        final AndFilterBuilder fqAnd = andFilter();
+                        for (final String fq : fqs) {
+                            fqAnd.add(queryFilter(fqDsl ? QueryBuilders
+                                    .wrapperQuery(fq) : QueryBuilders
+                                    .queryString(fq)));
+                        }
+                        filterBuilder = fqAnd;
+                    } else {
+                        filterBuilder = queryFilter(fqDsl ? QueryBuilders
+                                .wrapperQuery(fqs[0]) : QueryBuilders
+                                .queryString(fqs[0]));
+                    }
+
+                    queryBuilder = QueryBuilders.filteredQuery(
+                            QueryBuilders
+                                    .queryString(q)
+                                    .lowercaseExpandedTerms(
+                                            lowercaseExpandedTerms)
+                                    .autoGeneratePhraseQueries(
+                                            autoGeneratePhraseQueries),
+                            filterBuilder);
+                } else {
+                    queryBuilder = QueryBuilders
+                            .queryString(q)
+                            .lowercaseExpandedTerms(lowercaseExpandedTerms)
+                            .autoGeneratePhraseQueries(
+                                    autoGeneratePhraseQueries);
+                }
+                searchSourceBuilder.query(queryBuilder);
             }
-            searchSourceBuilder.query(queryBuilder);
         }
 
         searchSourceBuilder.from(start);
@@ -199,31 +232,6 @@ public class SolrSearchRestAction extends BaseRestHandler {
         } else {
             // default sort by descending score
             searchSourceBuilder.sort("_score", SortOrder.DESC);
-        }
-
-        // handler filters
-        if (fqs.length > 0) {
-            FilterBuilder filterBuilder = null;
-
-            // if there is more than one filter specified build
-            // an and filter of query filters, otherwise just
-            // build a single query filter.
-            if (fqs.length > 1) {
-                final AndFilterBuilder fqAnd = andFilter();
-                for (final String fq : fqs) {
-                    final QueryBuilder queryBuilder = fqDsl ? QueryBuilders
-                            .wrapperQuery(fq) : QueryBuilders.queryString(fq);
-                    fqAnd.add(queryFilter(queryBuilder));
-                }
-                filterBuilder = fqAnd;
-            } else {
-                final QueryBuilder queryBuilder = fqDsl ? QueryBuilders
-                        .wrapperQuery(fqs[0]) : QueryBuilders
-                        .queryString(fqs[0]);
-                filterBuilder = queryFilter(queryBuilder);
-            }
-
-            searchSourceBuilder.postFilter(filterBuilder);
         }
 
         // handle highlighting
