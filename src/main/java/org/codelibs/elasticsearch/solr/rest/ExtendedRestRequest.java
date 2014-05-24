@@ -1,4 +1,4 @@
-package org.elasticsearch.rest;
+package org.codelibs.elasticsearch.solr.rest;
 
 import static org.elasticsearch.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.elasticsearch.common.unit.TimeValue.parseTimeValue;
@@ -16,10 +16,11 @@ import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.rest.RestRequest;
 
 /**
  * @author shinsuke
- * 
+ *
  */
 public class ExtendedRestRequest extends RestRequest {
     private RestRequest parent;
@@ -264,7 +265,8 @@ public class ExtendedRestRequest extends RestRequest {
     @Override
     public Map<String, String> params() {
         final Map<String, String> map = new HashMap<String, String>();
-        for (final Map.Entry<String, List<String>> entry : getParameterMap().entrySet()) {
+        for (final Map.Entry<String, List<String>> entry : getParameterMap()
+                .entrySet()) {
             final List<String> valueList = entry.getValue();
             if (valueList != null) {
                 final StringBuilder buf = new StringBuilder();
@@ -282,8 +284,8 @@ public class ExtendedRestRequest extends RestRequest {
         return map;
     }
 
-    private Map<String, List<String>> getParameterMap(){
-        if(paramMap == null){
+    private Map<String, List<String>> getParameterMap() {
+        if (paramMap == null) {
             synchronized (this) {
                 initParameterMap();
             }
@@ -291,7 +293,7 @@ public class ExtendedRestRequest extends RestRequest {
         return paramMap;
     }
 
-    private boolean isAppendPostData(String contentType) {
+    private boolean isAppendPostData(final String contentType) {
         if (contentType == null) {
             return true;
         }
@@ -324,7 +326,8 @@ public class ExtendedRestRequest extends RestRequest {
                 charset = "UTF-8";
             }
 
-            requestParamMap = decodeParams(uri.substring(pathLength + 1), charset);
+            requestParamMap = decodeParams(uri.substring(pathLength + 1),
+                    charset);
         }
 
         for (final Map.Entry<String, String> entry : parent.params().entrySet()) {

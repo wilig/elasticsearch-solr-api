@@ -1,7 +1,7 @@
-package org.elasticsearch.plugin;
+package org.codelibs.elasticsearch.solr.plugin;
 
+import org.codelibs.elasticsearch.solr.index.mapper.date.RegisterSolrDateType;
 import org.elasticsearch.common.inject.AbstractModule;
-import org.elasticsearch.index.mapper.date.RegisterSolrDateType;
 
 public class SolrIndexModule extends AbstractModule {
     @Override

@@ -1,4 +1,4 @@
-package org.elasticsearch.index.mapper.date;
+package org.codelibs.elasticsearch.solr.index.mapper.date;
 
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;

@@ -1,13 +1,13 @@
-package org.elasticsearch.plugin;
+package org.codelibs.elasticsearch.solr.plugin;
 
 import java.util.ArrayList;
 import java.util.Collection;
 
+import org.codelibs.elasticsearch.solr.rest.SolrSearchRestAction;
+import org.codelibs.elasticsearch.solr.rest.SolrUpdateRestAction;
 import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.plugins.AbstractPlugin;
 import org.elasticsearch.rest.RestModule;
-import org.elasticsearch.rest.SolrSearchRestAction;
-import org.elasticsearch.rest.SolrUpdateRestAction;
 
 public class SolrPlugin extends AbstractPlugin {
 

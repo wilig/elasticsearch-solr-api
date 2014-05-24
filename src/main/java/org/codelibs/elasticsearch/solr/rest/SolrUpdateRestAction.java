@@ -1,4 +1,4 @@
-package org.elasticsearch.rest;
+package org.codelibs.elasticsearch.solr.rest;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -26,8 +26,10 @@ import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.SolrInputField;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
+import org.codelibs.elasticsearch.solr.SolrPluginConstants;
+import org.codelibs.elasticsearch.solr.solr.JavaBinUpdateRequestCodec;
+import org.codelibs.elasticsearch.solr.solr.SolrResponseUtils;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.SolrPluginConstants;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.WriteConsistencyLevel;
@@ -50,8 +52,11 @@ import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.solr.JavaBinUpdateRequestCodec;
-import org.elasticsearch.solr.SolrResponseUtils;
+import org.elasticsearch.rest.BaseRestHandler;
+import org.elasticsearch.rest.BytesRestResponse;
+import org.elasticsearch.rest.RestChannel;
+import org.elasticsearch.rest.RestController;
+import org.elasticsearch.rest.RestRequest;
 
 public class SolrUpdateRestAction extends BaseRestHandler {
 
@@ -83,7 +88,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     /**
      * Rest actions that mock Solr update handlers
-     * 
+     *
      * @param settings
      *            ES settings
      * @param client
@@ -112,8 +117,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
         // register update handlers
         // specifying and index and type is optional
-        restController.registerHandler(RestRequest.Method.GET,
-                "/_solr/update", this);
+        restController.registerHandler(RestRequest.Method.GET, "/_solr/update",
+                this);
         restController.registerHandler(RestRequest.Method.GET,
                 "/_solr/update/{handler}", this);
         restController.registerHandler(RestRequest.Method.GET,
@@ -132,7 +137,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see
      * org.elasticsearch.rest.RestHandler#handleRequest(org.elasticsearch.rest
      * .RestRequest, org.elasticsearch.rest.RestChannel)
@@ -169,7 +174,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         final List<DeleteByQueryRequest> deleteQueryList = new ArrayList<DeleteByQueryRequest>();
 
         // parse and handle the content
-        BytesReference content = requestEx.content();
+        final BytesReference content = requestEx.content();
         if (content.length() == 0) {
             if (TRUE.equalsIgnoreCase(requestEx.param("commit"))
                     || TRUE.equalsIgnoreCase(requestEx.param("softCommit"))
@@ -186,7 +191,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             XMLStreamReader parser = null;
             try {
                 // create parser for the content
-                 parser = inputFactory.createXMLStreamReader(new StringReader(
+                parser = inputFactory.createXMLStreamReader(new StringReader(
                         content.toUtf8()));
 
                 // parse the xml
@@ -237,8 +242,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 // some sort of error processing the xml input
                 logger.error("Error processing xml input", e);
                 try {
-                    channel.sendResponse(new XContentThrowableRestResponse(
-                            requestEx, e));
+                    channel.sendResponse(new BytesRestResponse(channel, e));
                 } catch (final IOException e1) {
                     logger.error("Failed to send error response", e1);
                 }
@@ -296,8 +300,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 // some sort of error processing the javabin input
                 logger.error("Error processing javabin input", e);
                 try {
-                    channel.sendResponse(new XContentThrowableRestResponse(
-                            requestEx, e));
+                    channel.sendResponse(new BytesRestResponse(channel, e));
                 } catch (final IOException e1) {
                     logger.error("Failed to send error response", e1);
                 }
@@ -389,8 +392,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                                     @Override
                                     public void onFailure(final Throwable t) {
                                         try {
-                                            channel.sendResponse(new XContentThrowableRestResponse(
-                                                    requestEx, t));
+                                            channel.sendResponse(new BytesRestResponse(
+                                                    channel, t));
                                         } catch (final IOException e) {
                                             logger.error(
                                                     "Failed to send error response",
@@ -424,8 +427,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                                     @Override
                                     public void onFailure(final Throwable t) {
                                         try {
-                                            channel.sendResponse(new XContentThrowableRestResponse(
-                                                    requestEx, t));
+                                            channel.sendResponse(new BytesRestResponse(
+                                                    channel, t));
                                         } catch (final IOException e) {
                                             logger.error(
                                                     "Failed to send error response",
@@ -439,8 +442,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             }
         } else {
             try {
-                channel.sendResponse(new XContentThrowableRestResponse(
-                        requestEx, new UnsupportedOperationException(
+                channel.sendResponse(new BytesRestResponse(channel,
+                        new UnsupportedOperationException(
                                 "Unsupported request: " + requestEx.toString())));
             } catch (final IOException e) {
                 logger.error("Failed to send error response", e);
@@ -492,7 +495,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     /**
      * Sends a dummy response to the Solr client
-     * 
+     *
      * @param request
      *            ES rest request
      * @param channel
@@ -517,7 +520,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     /**
      * Generates an ES DeleteRequest object based on the Solr document id
-     * 
+     *
      * @param id
      *            the Solr document id
      * @param request
@@ -558,7 +561,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         // create the delete request object
         final DeleteByQueryRequest deleteRequest = Requests
                 .deleteByQueryRequest(index);
-        deleteRequest.source("{\"query_string\":{\"query\":\"" + query + "\"}}");
+        deleteRequest
+                .source("{\"query_string\":{\"query\":\"" + query + "\"}}");
 
         deleteRequest.routing(request.param("routing"));
 
@@ -567,7 +571,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     /**
      * Converts a SolrInputDocument into an ES IndexRequest
-     * 
+     *
      * @param doc
      *            the Solr input document to convert
      * @param request
@@ -633,12 +637,12 @@ public class SolrUpdateRestAction extends BaseRestHandler {
      * attempt to find the Solr document id and convert it into a valid ES
      * document id. We keep the original Solr id so the document can be found
      * and deleted later if needed.
-     * 
+     *
      * We check for Solr document id's in the following fields: id, docid,
      * documentid, contentid, uuid, url
-     * 
+     *
      * If no id is found, we generate a random one.
-     * 
+     *
      * @param doc
      *            the input document
      * @return the generated document id
@@ -671,7 +675,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
     /**
      * Return the given id or a hashed version thereof, based on the plugin
      * configuration
-     * 
+     *
      * @param id
      * @return
      */
@@ -681,7 +685,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     /**
      * Calculates the md5 hex digest of the given input string
-     * 
+     *
      * @param input
      *            the string to md5
      * @return the md5 hex digest
@@ -701,7 +705,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     /**
      * Converts a SolrInputDocument into a Map
-     * 
+     *
      * @param doc
      *            the SolrInputDocument to convert
      * @return the input document as a map
@@ -723,7 +727,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     /**
      * Reads a SolrXML document into a map of fields
-     * 
+     *
      * @param parser
      *            the xml parser
      * @return the document as a map
@@ -798,7 +802,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     /**
      * Parse the document id out of the SolrXML delete command
-     * 
+     *
      * @param parser
      *            the xml parser
      * @return the document id to delete

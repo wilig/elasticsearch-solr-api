@@ -1,9 +1,8 @@
-package org.elasticsearch.solr;
+package org.codelibs.elasticsearch.solr.solr;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -19,8 +18,8 @@ import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.util.JavaBinCodec;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
+import org.codelibs.elasticsearch.solr.SolrPluginConstants;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.SolrPluginConstants;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -36,6 +35,8 @@ import org.elasticsearch.search.facet.Facet;
 import org.elasticsearch.search.facet.query.QueryFacet;
 import org.elasticsearch.search.facet.terms.TermsFacet;
 import org.elasticsearch.search.highlight.HighlightField;
+
+import com.google.common.base.Charsets;
 
 public class SolrResponseUtils {
 
@@ -74,7 +75,7 @@ public class SolrResponseUtils {
     /**
      * Converts the search response into a NamedList that the Solr Response
      * Writer can use.
-     * 
+     *
      * @param request
      *            the ES RestRequest
      * @param response
@@ -106,7 +107,7 @@ public class SolrResponseUtils {
 
     /**
      * Creates the Solr response header based on the search response.
-     * 
+     *
      * @param request
      *            the ES RestRequest
      * @param response
@@ -139,7 +140,7 @@ public class SolrResponseUtils {
 
     /**
      * Creates a NamedList for the for document highlighting response
-     * 
+     *
      * @param request
      *            the ES RestRequest
      * @param response
@@ -160,10 +161,10 @@ public class SolrResponseUtils {
                 final NamedList<Object> docHighlights = new SimpleOrderedMap<Object>();
                 final Map<String, HighlightField> highlightFields = hit
                         .getHighlightFields();
-				for (final Map.Entry<String, HighlightField> entry : highlightFields
-						.entrySet()) {
-					final String fieldName = entry.getKey();
-					final HighlightField highlightField = entry.getValue();
+                for (final Map.Entry<String, HighlightField> entry : highlightFields
+                        .entrySet()) {
+                    final String fieldName = entry.getKey();
+                    final HighlightField highlightField = entry.getValue();
                     final Text[] fragments = highlightField.getFragments();
                     final List<String> fragmentList = new ArrayList<String>(
                             fragments.length);
@@ -234,7 +235,7 @@ public class SolrResponseUtils {
     /**
      * Converts the search results into a SolrDocumentList that can be
      * serialized by the Solr Response Writer.
-     * 
+     *
      * @param request
      *            the ES RestRequest
      * @param response
@@ -267,10 +268,10 @@ public class SolrResponseUtils {
             final Map<String, Object> source = hit.sourceAsMap();
             if (fields.isEmpty()) {
                 if (source != null) {
-					for (final Map.Entry<String, Object> entry : source
-							.entrySet()) {
-						final String sourceField = entry.getKey();
-						Object fieldValue = entry.getValue();
+                    for (final Map.Entry<String, Object> entry : source
+                            .entrySet()) {
+                        final String sourceField = entry.getKey();
+                        Object fieldValue = entry.getValue();
 
                         // ES does not return date fields as Date Objects
                         // detect if the string is a date, and if so
@@ -313,7 +314,7 @@ public class SolrResponseUtils {
     /**
      * Serializes the NamedList in the specified output format and sends it to
      * the Solr Client.
-     * 
+     *
      * @param obj
      *            the NamedList response to serialize
      * @param request
@@ -340,7 +341,7 @@ public class SolrResponseUtils {
 
     /**
      * Write the response object in JavaBin format.
-     * 
+     *
      * @param obj
      *            the response object
      * @param channel
@@ -357,18 +358,11 @@ public class SolrResponseUtils {
             logger.error("Error writing JavaBin response", e);
         }
 
+        final Object errorResponse = obj.get("error");
         // send the response
-        channel.sendResponse(new BytesRestResponse(bo.toByteArray(),
-                CONTENT_TYPE_OCTET) {
-            @Override
-            public RestStatus status() {
-                final Object errorResponse = obj.get("error");
-                if (errorResponse != null) {
-                    return RestStatus.INTERNAL_SERVER_ERROR;
-                }
-                return RestStatus.OK;
-            }
-        });
+        channel.sendResponse(new BytesRestResponse(
+                errorResponse != null ? RestStatus.INTERNAL_SERVER_ERROR
+                        : RestStatus.OK, CONTENT_TYPE_OCTET, bo.toByteArray()));
     }
 
     private static void writeXmlResponse(final NamedList<Object> obj,
@@ -396,20 +390,10 @@ public class SolrResponseUtils {
         }
 
         // send the response
-        try {
-            channel.sendResponse(new BytesRestResponse(writer.toString()
-                    .getBytes("UTF-8"), CONTENT_TYPE_XML) {
-                @Override
-                public RestStatus status() {
-                    final Object errorResponse = obj.get("error");
-                    if (errorResponse != null) {
-                        return RestStatus.INTERNAL_SERVER_ERROR;
-                    }
-                    return RestStatus.OK;
-                }
-            });
-        } catch (final UnsupportedEncodingException e) {
-            throw new ElasticsearchException("Unsupported encoding.", e);
-        }
+        final Object errorResponse = obj.get("error");
+        channel.sendResponse(new BytesRestResponse(
+                errorResponse != null ? RestStatus.INTERNAL_SERVER_ERROR
+                        : RestStatus.OK, CONTENT_TYPE_XML, writer.toString()
+                        .getBytes(Charsets.UTF_8)));
     }
 }

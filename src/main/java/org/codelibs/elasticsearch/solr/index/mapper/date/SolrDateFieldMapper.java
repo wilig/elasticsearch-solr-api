@@ -1,5 +1,6 @@
-package org.elasticsearch.index.mapper.date;
+package org.codelibs.elasticsearch.solr.index.mapper.date;
 
+import static org.elasticsearch.index.mapper.MapperBuilders.dateField;
 import static org.elasticsearch.index.mapper.core.TypeParsers.parseDateTimeFormatter;
 import static org.elasticsearch.index.mapper.core.TypeParsers.parseNumberField;
 
@@ -32,10 +33,13 @@ import org.elasticsearch.common.Explicit;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.Numbers;
 import org.elasticsearch.common.Strings;
+import org.elasticsearch.common.joda.DateMathParser;
 import org.elasticsearch.common.joda.FormatDateTimeFormatter;
 import org.elasticsearch.common.joda.Joda;
+import org.elasticsearch.common.lucene.search.NoCacheFilter;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.Fuzziness;
+import org.elasticsearch.common.util.LocaleUtils;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.analysis.NamedAnalyzer;
@@ -50,7 +54,8 @@ import org.elasticsearch.index.mapper.MapperParsingException;
 import org.elasticsearch.index.mapper.MergeContext;
 import org.elasticsearch.index.mapper.MergeMappingException;
 import org.elasticsearch.index.mapper.ParseContext;
-import org.elasticsearch.index.mapper.core.LongFieldMapper;
+import org.elasticsearch.index.mapper.core.DateFieldMapper;
+import org.elasticsearch.index.mapper.core.LongFieldMapper.CustomLongNumericField;
 import org.elasticsearch.index.mapper.core.NumberFieldMapper;
 import org.elasticsearch.index.query.QueryParseContext;
 import org.elasticsearch.index.search.NumericRangeFieldDataFilter;
@@ -66,7 +71,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
 
     public static class Defaults extends NumberFieldMapper.Defaults {
         public static final FormatDateTimeFormatter DATE_TIME_FORMATTER = Joda
-                .forPattern("dateOptionalTime");
+                .forPattern("dateOptionalTime", Locale.ROOT);
 
         public static final FieldType FIELD_TYPE = new FieldType(
                 NumberFieldMapper.Defaults.FIELD_TYPE);
@@ -79,7 +84,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
 
         public static final TimeUnit TIME_UNIT = TimeUnit.MILLISECONDS;
 
-        public static final boolean PARSE_UPPER_INCLUSIVE = true;
+        public static final boolean ROUND_CEIL = true;
     }
 
     public static class Builder extends
@@ -91,9 +96,16 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
 
         protected FormatDateTimeFormatter dateTimeFormatter = Defaults.DATE_TIME_FORMATTER;
 
+        private Locale locale;
+
         public Builder(final String name) {
-            super(name, new FieldType(Defaults.FIELD_TYPE));
+            super(
+                    name,
+                    new FieldType(Defaults.FIELD_TYPE),
+                    org.elasticsearch.index.mapper.core.NumberFieldMapper.Defaults.PRECISION_STEP_64_BIT);
             builder = this;
+            // do *NOT* rely on the default locale
+            locale = Locale.ROOT;
         }
 
         public Builder timeUnit(final TimeUnit timeUnit) {
@@ -114,32 +126,45 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
 
         @Override
         public SolrDateFieldMapper build(final BuilderContext context) {
-            boolean parseUpperInclusive = Defaults.PARSE_UPPER_INCLUSIVE;
+            boolean roundCeil = Defaults.ROUND_CEIL;
             if (context.indexSettings() != null) {
-                parseUpperInclusive = context.indexSettings().getAsBoolean(
-                        "index.mapping.date.parse_upper_inclusive",
-                        Defaults.PARSE_UPPER_INCLUSIVE);
+                final Settings settings = context.indexSettings();
+                roundCeil = settings.getAsBoolean(
+                        "index.mapping.date.round_ceil", settings.getAsBoolean(
+                                "index.mapping.date.parse_upper_inclusive",
+                                Defaults.ROUND_CEIL));
             }
             fieldType.setOmitNorms(fieldType.omitNorms() && boost == 1.0f);
+            if (!locale.equals(dateTimeFormatter.locale())) {
+                dateTimeFormatter = new FormatDateTimeFormatter(
+                        dateTimeFormatter.format(), dateTimeFormatter.parser(),
+                        dateTimeFormatter.printer(), locale);
+            }
             final SolrDateFieldMapper fieldMapper = new SolrDateFieldMapper(
-                    buildNames(context), dateTimeFormatter, precisionStep,
-                    boost, fieldType, docValues, nullValue, timeUnit, parseUpperInclusive,
-                    this.ignoreMalformed(context), coerce(context), postingsProvider, docValuesProvider,
-                    similarity, normsLoading, fieldDataSettings, context.indexSettings(),
+                    buildNames(context), dateTimeFormatter,
+                    fieldType.numericPrecisionStep(), boost, fieldType,
+                    docValues, nullValue, timeUnit, roundCeil,
+                    ignoreMalformed(context), coerce(context),
+                    postingsProvider, docValuesProvider, similarity,
+                    normsLoading, fieldDataSettings, context.indexSettings(),
                     multiFieldsBuilder.build(this, context), copyTo);
             fieldMapper.includeInAll(includeInAll);
             return fieldMapper;
+        }
+
+        public Builder locale(final Locale locale) {
+            this.locale = locale;
+            return this;
         }
     }
 
     public static class TypeParser implements Mapper.TypeParser {
         @Override
-        public Mapper.Builder parse(final String name,
+        public Mapper.Builder<?, ?> parse(final String name,
                 final Map<String, Object> node,
                 final ParserContext parserContext)
                 throws MapperParsingException {
-            final SolrDateFieldMapper.Builder builder = new SolrDateFieldMapper.Builder(
-                    name);// dateField(name);
+            final DateFieldMapper.Builder builder = dateField(name);
             parseNumberField(builder, name, node, parserContext);
             for (final Map.Entry<String, Object> entry : node.entrySet()) {
                 final String propName = Strings
@@ -152,16 +177,27 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                             propNode));
                 } else if (propName.equals("numeric_resolution")) {
                     builder.timeUnit(TimeUnit.valueOf(propNode.toString()
-                            .toUpperCase()));
+                            .toUpperCase(Locale.ROOT)));
+                } else if (propName.equals("locale")) {
+                    builder.locale(LocaleUtils.parse(propNode.toString()));
                 }
             }
             return builder;
         }
     }
 
-    protected final FormatDateTimeFormatter dateTimeFormatter;
+    protected FormatDateTimeFormatter dateTimeFormatter;
 
-    private final boolean parseUpperInclusive;
+    // Triggers rounding up of the upper bound for range queries and filters if
+    // set to true.
+    // Rounding up a date here has the following meaning: If a date is not
+    // defined with full precision, for example, no milliseconds given, the date
+    // will be filled up to the next larger date with that precision.
+    // Example: An upper bound given as "2000-01-01", will be converted to
+    // "2000-01-01T23.59.59.999"
+    private final boolean roundCeil;
+
+    private final DateMathParser dateMathParser;
 
     private String nullValue;
 
@@ -172,15 +208,16 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
             final int precisionStep, final float boost,
             final FieldType fieldType, final Boolean docValues,
             final String nullValue, final TimeUnit timeUnit,
-            final boolean parseUpperInclusive,
-            final Explicit<Boolean> ignoreMalformed,
+            final boolean roundCeil, final Explicit<Boolean> ignoreMalformed,
             final Explicit<Boolean> coerce,
             final PostingsFormatProvider postingsProvider,
             final DocValuesFormatProvider docValuesProvider,
-            final SimilarityProvider similarity, final Loading normsLoading,
+            final SimilarityProvider similarity,
+
+            final Loading normsLoading,
             @Nullable final Settings fieldDataSettings,
             final Settings indexSettings, final MultiFields multiFields,
-            CopyTo copyTo) {
+            final CopyTo copyTo) {
         super(names, precisionStep, boost, fieldType, docValues,
                 ignoreMalformed, coerce, new NamedAnalyzer("_solr_date/"
                         + precisionStep, new NumericDateAnalyzer(precisionStep,
@@ -192,7 +229,16 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
         this.dateTimeFormatter = dateTimeFormatter;
         this.nullValue = nullValue;
         this.timeUnit = timeUnit;
-        this.parseUpperInclusive = parseUpperInclusive;
+        this.roundCeil = roundCeil;
+        dateMathParser = new DateMathParser(dateTimeFormatter, timeUnit);
+    }
+
+    public FormatDateTimeFormatter dateTimeFormatter() {
+        return dateTimeFormatter;
+    }
+
+    public DateMathParser dateMathParser() {
+        return dateMathParser;
     }
 
     @Override
@@ -221,17 +267,14 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
         if (value instanceof BytesRef) {
             return Numbers.bytesToLong((BytesRef) value);
         }
-        return parseStringValue(value.toString(), System.currentTimeMillis());
+        return parseStringValue(value.toString());
     }
 
-    /**
-     * Dates should return as a string.
-     */
+    /** Dates should return as a string. */
     @Override
     public Object valueForSearch(final Object value) {
         if (value instanceof String) {
-            // assume its the string that was indexed, just return it... (for
-            // example, with get)
+            // assume its the string that was indexed, just return it... (for example, with get)
             return value;
         }
         final Long val = value(value);
@@ -244,8 +287,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     @Override
     public BytesRef indexedValueForSearch(final Object value) {
         final BytesRef bytesRef = new BytesRef();
-        NumericUtils.longToPrefixCoded(parseValue(value), precisionStep(),
-                bytesRef);
+        NumericUtils.longToPrefixCoded(parseValue(value), 0, bytesRef); // 0 because of exact match
         return bytesRef;
     }
 
@@ -271,8 +313,15 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     public Query fuzzyQuery(final String value, final Fuzziness fuzziness,
             final int prefixLength, final int maxExpansions,
             final boolean transpositions) {
-        final long iValue = parseStringValue(value, System.currentTimeMillis());
-        long iSim = fuzziness.asLong();
+        final long iValue = dateMathParser.parse(value,
+                System.currentTimeMillis());
+        long iSim;
+        try {
+            iSim = fuzziness.asTimeValue().millis();
+        } catch (final Exception e) {
+            // not a time format
+            iSim = fuzziness.asLong();
+        }
         return NumericRangeQuery.newLongRange(names.indexName(), precisionStep,
                 iValue - iSim, iValue + iSim, true, true);
     }
@@ -280,19 +329,42 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     @Override
     public Query termQuery(final Object value,
             @Nullable final QueryParseContext context) {
-        final long now = context == null ? System.currentTimeMillis() : context
-                .nowInMillis();
-        final long lValue = parseStringValue(convertToString(value), now);
+        final long lValue = parseToMilliseconds(value, context);
         return NumericRangeQuery.newLongRange(names.indexName(), precisionStep,
                 lValue, lValue, true, true);
+    }
+
+    public long parseToMilliseconds(final Object value,
+            @Nullable final QueryParseContext context) {
+        return parseToMilliseconds(value, context, false);
+    }
+
+    public long parseToMilliseconds(final Object value,
+            @Nullable final QueryParseContext context,
+            final boolean includeUpper) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        final long now = context == null ? System.currentTimeMillis() : context
+                .nowInMillis();
+        return includeUpper && roundCeil ? dateMathParser.parseRoundCeil(
+                convertToString(value), now) : dateMathParser.parse(
+                convertToString(value), now);
+    }
+
+    public long parseToMilliseconds(final String value,
+            @Nullable final QueryParseContext context,
+            final boolean includeUpper) {
+        final long now = context == null ? System.currentTimeMillis() : context
+                .nowInMillis();
+        return includeUpper && roundCeil ? dateMathParser.parseRoundCeil(value,
+                now) : dateMathParser.parse(value, now);
     }
 
     @Override
     public Filter termFilter(final Object value,
             @Nullable final QueryParseContext context) {
-        final long now = context == null ? System.currentTimeMillis() : context
-                .nowInMillis();
-        final long lValue = parseStringValue(convertToString(value), now);
+        final long lValue = parseToMilliseconds(value, context);
         return NumericRangeFilter.newLongRange(names.indexName(),
                 precisionStep, lValue, lValue, true, true);
     }
@@ -301,44 +373,61 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     public Query rangeQuery(final Object lowerTerm, final Object upperTerm,
             final boolean includeLower, final boolean includeUpper,
             @Nullable final QueryParseContext context) {
-        final long now = context == null ? System.currentTimeMillis() : context
-                .nowInMillis();
-		Long min = null;
-		if (lowerTerm != null) {
-			min = parseStringValue(convertToString(lowerTerm), now);
-		}
-		Long max = null;
-		if (upperTerm != null) {
-			if (includeUpper && parseUpperInclusive) {
-				max = parseStringValue(convertToString(upperTerm), now);
-			} else {
-				max = parseStringValue(convertToString(upperTerm), now);
-			}
-		}
-		return NumericRangeQuery.newLongRange(names.indexName(), precisionStep,
-				min, max, includeLower, includeUpper);
+        return NumericRangeQuery.newLongRange(
+                names.indexName(),
+                precisionStep,
+                lowerTerm == null ? null : parseToMilliseconds(lowerTerm,
+                        context),
+                upperTerm == null ? null : parseToMilliseconds(upperTerm,
+                        context, includeUpper), includeLower, includeUpper);
     }
 
     @Override
     public Filter rangeFilter(final Object lowerTerm, final Object upperTerm,
             final boolean includeLower, final boolean includeUpper,
             @Nullable final QueryParseContext context) {
-        final long now = context == null ? System.currentTimeMillis() : context
-                .nowInMillis();
-		Long min = null;
-		if (lowerTerm != null) {
-			min = parseStringValue(convertToString(lowerTerm), now);
-		}
-		Long max = null;
-		if (upperTerm != null) {
-			if (includeUpper && parseUpperInclusive) {
-				max = parseStringValue(convertToString(upperTerm), now);
-			} else {
-				max = parseStringValue(convertToString(upperTerm), now);
-			}
-		}
-		return NumericRangeFilter.newLongRange(names.indexName(),
-				precisionStep, min, max, includeLower, includeUpper);
+        return rangeFilter(lowerTerm, upperTerm, includeLower, includeUpper,
+                context, false);
+    }
+
+    public Filter rangeFilter(final Object lowerTerm, final Object upperTerm,
+            final boolean includeLower, final boolean includeUpper,
+            @Nullable final QueryParseContext context,
+            final boolean explicitCaching) {
+        boolean cache = explicitCaching;
+        Long lowerVal = null;
+        Long upperVal = null;
+        if (lowerTerm != null) {
+            if (lowerTerm instanceof Number) {
+                lowerVal = ((Number) lowerTerm).longValue();
+            } else {
+                final String value = convertToString(lowerTerm);
+                cache = explicitCaching
+                        || !hasNowExpressionWithNoRounding(value);
+                lowerVal = parseToMilliseconds(value, context, false);
+            }
+        }
+        if (upperTerm != null) {
+            if (upperTerm instanceof Number) {
+                upperVal = ((Number) upperTerm).longValue();
+            } else {
+                final String value = convertToString(upperTerm);
+                cache = explicitCaching
+                        || !hasNowExpressionWithNoRounding(value);
+                upperVal = parseToMilliseconds(value, context, includeUpper);
+            }
+        }
+
+        final Filter filter = NumericRangeFilter.newLongRange(
+                names.indexName(), precisionStep, lowerVal, upperVal,
+                includeLower, includeUpper);
+        if (!cache) {
+            // We don't cache range filter if `now` date expression is used and also when a compound filter wraps
+            // a range filter with a `now` date expressions.
+            return NoCacheFilter.wrap(filter);
+        } else {
+            return filter;
+        }
     }
 
     @Override
@@ -346,23 +435,77 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
             final Object lowerTerm, final Object upperTerm,
             final boolean includeLower, final boolean includeUpper,
             @Nullable final QueryParseContext context) {
-        final long now = context == null ? System.currentTimeMillis() : context
-                .nowInMillis();
-		Long lowerVal = null;
-		if (lowerTerm != null) {
-			lowerVal = parseStringValue(convertToString(lowerTerm), now);
-		}
-		Long upperVal = null;
-		if (upperTerm != null) {
-			if (includeUpper && parseUpperInclusive) {
-				upperVal = parseStringValue(convertToString(upperTerm), now);
-			} else {
-				upperVal = parseStringValue(convertToString(upperTerm), now);
-			}
-		}
-		return NumericRangeFieldDataFilter.newLongRange(
-				(IndexNumericFieldData) fieldData.getForField(this), lowerVal,
-				upperVal, includeLower, includeUpper);
+        return rangeFilter(fieldData, lowerTerm, upperTerm, includeLower,
+                includeUpper, context, false);
+    }
+
+    public Filter rangeFilter(final IndexFieldDataService fieldData,
+            final Object lowerTerm, final Object upperTerm,
+            final boolean includeLower, final boolean includeUpper,
+            @Nullable final QueryParseContext context,
+            final boolean explicitCaching) {
+        boolean cache = explicitCaching;
+        Long lowerVal = null;
+        Long upperVal = null;
+        if (lowerTerm != null) {
+            if (lowerTerm instanceof Number) {
+                lowerVal = ((Number) lowerTerm).longValue();
+            } else {
+                final String value = convertToString(lowerTerm);
+                cache = explicitCaching
+                        || !hasNowExpressionWithNoRounding(value);
+                lowerVal = parseToMilliseconds(value, context, false);
+            }
+        }
+        if (upperTerm != null) {
+            if (upperTerm instanceof Number) {
+                upperVal = ((Number) upperTerm).longValue();
+            } else {
+                final String value = convertToString(upperTerm);
+                cache = explicitCaching
+                        || !hasNowExpressionWithNoRounding(value);
+                upperVal = parseToMilliseconds(value, context, includeUpper);
+            }
+        }
+
+        final Filter filter = NumericRangeFieldDataFilter.newLongRange(
+                (IndexNumericFieldData<?>) fieldData.getForField(this),
+                lowerVal, upperVal, includeLower, includeUpper);
+        if (!cache) {
+            // We don't cache range filter if `now` date expression is used and also when a compound filter wraps
+            // a range filter with a `now` date expressions.
+            return NoCacheFilter.wrap(filter);
+        } else {
+            return filter;
+        }
+    }
+
+    private boolean hasNowExpressionWithNoRounding(final String value) {
+        final int index = value.indexOf("now");
+        if (index != -1) {
+            if (value.length() == 3) {
+                return true;
+            } else {
+                int indexOfPotentialRounding = index + 3;
+                if (indexOfPotentialRounding >= value.length()) {
+                    return true;
+                } else {
+                    char potentialRoundingChar;
+                    do {
+                        potentialRoundingChar = value
+                                .charAt(indexOfPotentialRounding++);
+                        if (potentialRoundingChar == '/') {
+                            return false; // We found the rounding char, so we shouldn't forcefully disable caching
+                        } else if (potentialRoundingChar == ' ') {
+                            return true; // Next token in the date math expression and no rounding found, so we should not cache.
+                        }
+                    } while (indexOfPotentialRounding < value.length());
+                    return true; // Couldn't find rounding char, so we should not cache
+                }
+            }
+        } else {
+            return false;
+        }
     }
 
     @Override
@@ -370,8 +513,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
         if (nullValue == null) {
             return null;
         }
-        final long value = parseStringValue(nullValue,
-                System.currentTimeMillis());
+        final long value = parseStringValue(nullValue);
         return NumericRangeFilter.newLongRange(names.indexName(),
                 precisionStep, value, value, true, true);
     }
@@ -382,8 +524,8 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     }
 
     @Override
-    protected void innerParseCreateField(final ParseContext context, final List<Field> fields)
-            throws IOException {
+    protected void innerParseCreateField(final ParseContext context,
+            final List<Field> fields) throws IOException {
         String dateAsString = null;
         Long value = null;
         float boost = this.boost;
@@ -437,15 +579,16 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
         if (dateAsString != null) {
             assert value == null;
             if (context.includeInAll(includeInAll, this)) {
-                context.allEntries().addText(names.fullName(), dateAsString, boost);
+                context.allEntries().addText(names.fullName(), dateAsString,
+                        boost);
             }
-            value = parseStringValue(dateAsString, System.currentTimeMillis());
+            value = parseStringValue(dateAsString);
         }
 
         if (value != null) {
             if (fieldType.indexed() || fieldType.stored()) {
-                final LongFieldMapper.CustomLongNumericField field = new LongFieldMapper.CustomLongNumericField(
-                    this, value, fieldType);
+                final CustomLongNumericField field = new CustomLongNumericField(
+                        this, value, fieldType);
                 field.setBoost(boost);
                 fields.add(field);
             }
@@ -453,7 +596,6 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                 addDocValue(context, value);
             }
         }
-
     }
 
     @Override
@@ -470,43 +612,62 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
         }
         if (!mergeContext.mergeFlags().simulate()) {
             nullValue = ((SolrDateFieldMapper) mergeWith).nullValue;
+            dateTimeFormatter = ((SolrDateFieldMapper) mergeWith).dateTimeFormatter;
         }
     }
 
     @Override
-    protected void doXContentBody(final XContentBuilder builder, boolean includeDefaults, Params params)
+    protected void doXContentBody(final XContentBuilder builder,
+            final boolean includeDefaults, final Params params)
             throws IOException {
         super.doXContentBody(builder, includeDefaults, params);
-        if (precisionStep != org.elasticsearch.index.mapper.core.NumberFieldMapper.Defaults.PRECISION_STEP) {
+
+        if (includeDefaults
+                || precisionStep != org.elasticsearch.index.mapper.core.NumberFieldMapper.Defaults.PRECISION_STEP_64_BIT) {
             builder.field("precision_step", precisionStep);
         }
         builder.field("format", dateTimeFormatter.format());
-        if (nullValue != null) {
+        if (includeDefaults || nullValue != null) {
             builder.field("null_value", nullValue);
         }
         if (includeInAll != null) {
             builder.field("include_in_all", includeInAll);
+        } else if (includeDefaults) {
+            builder.field("include_in_all", false);
         }
-        if (timeUnit != Defaults.TIME_UNIT) {
-            builder.field("numeric_resolution", timeUnit.name().toLowerCase());
+
+        if (includeDefaults || timeUnit != Defaults.TIME_UNIT) {
+            builder.field("numeric_resolution",
+                    timeUnit.name().toLowerCase(Locale.ROOT));
+        }
+        // only serialize locale if needed, ROOT is the default, so no need to serialize that case as well...
+        if (dateTimeFormatter.locale() != null
+                && dateTimeFormatter.locale() != Locale.ROOT) {
+            builder.field("locale", dateTimeFormatter.locale());
+        } else if (includeDefaults) {
+            if (dateTimeFormatter.locale() == null) {
+                builder.field("locale", Locale.ROOT);
+            } else {
+                builder.field("locale", dateTimeFormatter.locale());
+            }
         }
     }
 
-    private long parseStringValue(final String value, final long now) {
+    private long parseStringValue(final String value) {
         try {
-            return parseSolrDateMath(value.toUpperCase(Locale.ROOT), now)
-                    .getTime();
-            // return dateTimeFormatter.parser().parseMillis(value);
-        } catch (final ParseException e) {
+            return parseSolrDateMath(value.toUpperCase(Locale.ROOT),
+                    System.currentTimeMillis()).getTime();
+            //            return dateTimeFormatter.parser().parseMillis(value);
+        } catch (final Exception e) {
             try {
                 final long time = Long.parseLong(value);
                 return timeUnit.toMillis(time);
             } catch (final NumberFormatException e1) {
-                throw new MapperParsingException(
-                        "failed to parse solr_date field [" + value
-                                + "], tried both date format ["
-                                + dateTimeFormatter.format()
-                                + "], and timestamp number", e);
+                throw new MapperParsingException("failed to parse date field ["
+                        + value + "], tried both date format ["
+                        + dateTimeFormatter.format()
+                        + "], and timestamp number with locale ["
+                        + dateTimeFormatter.locale() + "]", e);
             }
         }
     }

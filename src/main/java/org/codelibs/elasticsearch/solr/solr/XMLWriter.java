@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.elasticsearch.solr;
+package org.codelibs.elasticsearch.solr.solr;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -37,7 +37,7 @@ import org.elasticsearch.common.joda.time.format.DateTimeFormatter;
 /**
  * Writes objects to xml. This class is taken directly out of the Solr source
  * code and modified to remove the stuff we do not need for the plugin.
- * 
+ *
  */
 final public class XMLWriter {
 
@@ -89,7 +89,7 @@ final public class XMLWriter {
 
     /**
      * Writes a tag with attributes
-     * 
+     *
      * @param tag
      * @param attributes
      * @param closeTag
@@ -116,7 +116,7 @@ final public class XMLWriter {
     /**
      * Write a complete tag w/ attributes and cdata (the cdata is not enclosed
      * in $lt;!CDATA[]!&gt;
-     * 
+     *
      * @param tag
      * @param attributes
      * @param cdata
@@ -221,11 +221,11 @@ final public class XMLWriter {
         writer.write("<result");
         this.writeAttr("name", name);
         this.writeAttr("numFound", Long.toString(docs.getNumFound())); // TODO:
-                                                                       // change
-                                                                       // to
-                                                                       // long
+        // change
+        // to
+        // long
         this.writeAttr("start", Long.toString(docs.getStart())); // TODO: change
-                                                                 // to long
+        // to long
         if (includeScore && docs.getMaxScore() != null) {
             this.writeAttr("maxScore", Float.toString(docs.getMaxScore()));
         }
@@ -343,7 +343,7 @@ final public class XMLWriter {
     /**
      * writes a Map in the same format as a NamedList, using the stringification
      * of the key Object when it's non-null.
-     * 
+     *
      * @param name
      * @param map
      * @throws IOException

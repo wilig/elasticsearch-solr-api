@@ -1,11 +1,12 @@
-package org.elasticsearch.rest;
+package org.codelibs.elasticsearch.solr.rest;
 
 import static org.elasticsearch.index.query.FilterBuilders.andFilter;
 import static org.elasticsearch.index.query.FilterBuilders.queryFilter;
 
 import java.io.IOException;
 
-import org.elasticsearch.SolrPluginConstants;
+import org.codelibs.elasticsearch.solr.SolrPluginConstants;
+import org.codelibs.elasticsearch.solr.solr.SolrResponseUtils;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -17,6 +18,11 @@ import org.elasticsearch.index.query.AndFilterBuilder;
 import org.elasticsearch.index.query.FilterBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.rest.BaseRestHandler;
+import org.elasticsearch.rest.BytesRestResponse;
+import org.elasticsearch.rest.RestChannel;
+import org.elasticsearch.rest.RestController;
+import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.facet.query.QueryFacetBuilder;
 import org.elasticsearch.search.facet.terms.TermsFacet;
@@ -24,7 +30,6 @@ import org.elasticsearch.search.facet.terms.TermsFacetBuilder;
 import org.elasticsearch.search.highlight.HighlightBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
-import org.elasticsearch.solr.SolrResponseUtils;
 
 public class SolrSearchRestAction extends BaseRestHandler {
 
@@ -38,7 +43,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
 
     /**
      * Rest actions that mocks the Solr search handler
-     * 
+     *
      * @param settings
      *            ES settings
      * @param client
@@ -81,7 +86,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see
      * org.elasticsearch.rest.RestHandler#handleRequest(org.elasticsearch.rest
      * .RestRequest, org.elasticsearch.rest.RestChannel)
@@ -113,8 +118,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
             public void onFailure(final Throwable t) {
                 logger.error("Error processing executing search", t);
                 try {
-                    channel.sendResponse(new XContentThrowableRestResponse(
-                            requestEx, t));
+                    channel.sendResponse(new BytesRestResponse(channel, t));
                 } catch (final IOException e) {
                     logger.error("Failed to send failure response", e);
                 }
@@ -124,7 +128,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
 
     /**
      * Generates an ES SearchRequest based on the Solr Input Parameters
-     * 
+     *
      * @param request
      *            the ES RestRequest
      * @return the generated ES SearchRequest

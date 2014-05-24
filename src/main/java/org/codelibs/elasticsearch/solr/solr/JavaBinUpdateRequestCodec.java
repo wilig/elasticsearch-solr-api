@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.elasticsearch.solr;
+package org.codelibs.elasticsearch.solr.solr;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,8 +35,8 @@ import org.apache.solr.common.util.NamedList;
 /**
  * Provides methods for marshalling an UpdateRequest to a NamedList which can be
  * serialized in the javabin format and vice versa.
- * 
- * 
+ *
+ *
  * @see org.apache.solr.common.util.JavaBinCodec
  * @since solr 1.4
  */
@@ -45,12 +45,12 @@ public class JavaBinUpdateRequestCodec {
     /**
      * Converts an UpdateRequest to a NamedList which can be serialized to the
      * given OutputStream in the javabin format
-     * 
+     *
      * @param updateRequest
      *            the UpdateRequest to be written out
      * @param os
      *            the OutputStream to which the request is to be written
-     * 
+     *
      * @throws IOException
      *             in case of an exception during marshalling or writing to the
      *             stream
@@ -83,15 +83,15 @@ public class JavaBinUpdateRequestCodec {
     /**
      * Reads a NamedList from the given InputStream, converts it into a
      * SolrInputDocument and passes it to the given StreamingUpdateHandler
-     * 
+     *
      * @param is
      *            the InputStream from which to read
      * @param handler
      *            an instance of StreamingUpdateHandler to which
      *            SolrInputDocuments are streamed one by one
-     * 
+     *
      * @return the UpdateRequest
-     * 
+     *
      * @throws IOException
      *             in case of an exception while reading from the input stream
      *             or unmarshalling

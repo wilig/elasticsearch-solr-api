@@ -1,4 +1,4 @@
-package org.elasticsearch;
+package org.codelibs.elasticsearch.solr;
 
 import java.nio.charset.Charset;
 
