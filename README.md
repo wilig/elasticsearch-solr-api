@@ -3,6 +3,7 @@
 | Solr API | elasticsearch | Lucene/Solr |
 |:--------:|:-------------:|:-----------:|
 | master   | 1.2.x         | 4.8.1       |
+| 1.4.0    | 1.2.0         | 4.8.1       |
 | 1.3.0    | 1.0.0         | 4.6.1       |
 | 1.2.2    | 0.90.5        | 4.4.0       |
 | 1.2.1    | 0.90.3        | 4.4.0       |
@@ -30,7 +31,7 @@ The original project is [mocksolrplugin](https://github.com/mattweber/elasticsea
 
 Type the following command:
 
-    $ ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.3.0
+    $ ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.4.0
 
 ## How do you build this plugin?
 
