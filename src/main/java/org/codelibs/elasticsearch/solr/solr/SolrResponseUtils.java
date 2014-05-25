@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -36,8 +37,6 @@ import org.elasticsearch.search.facet.query.QueryFacet;
 import org.elasticsearch.search.facet.terms.TermsFacet;
 import org.elasticsearch.search.highlight.HighlightField;
 
-import com.google.common.base.Charsets;
-
 public class SolrResponseUtils {
 
     private static final ESLogger logger = Loggers
@@ -46,6 +45,8 @@ public class SolrResponseUtils {
     private static final String CONTENT_TYPE_OCTET = "application/octet-stream";
 
     private static final String CONTENT_TYPE_XML = "application/xml; charset=UTF-8";
+
+    public static final Charset UTF_8 = Charset.forName("UTF-8");
 
     // regex and date format to detect ISO8601 date formats
     private static final Pattern ISO_DATE_PATTERN = Pattern
@@ -394,6 +395,6 @@ public class SolrResponseUtils {
         channel.sendResponse(new BytesRestResponse(
                 errorResponse != null ? RestStatus.INTERNAL_SERVER_ERROR
                         : RestStatus.OK, CONTENT_TYPE_XML, writer.toString()
-                        .getBytes(Charsets.UTF_8)));
+                        .getBytes(UTF_8)));
     }
 }

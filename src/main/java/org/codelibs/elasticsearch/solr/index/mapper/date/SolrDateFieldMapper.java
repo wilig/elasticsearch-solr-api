@@ -1,6 +1,5 @@
 package org.codelibs.elasticsearch.solr.index.mapper.date;
 
-import static org.elasticsearch.index.mapper.MapperBuilders.dateField;
 import static org.elasticsearch.index.mapper.core.TypeParsers.parseDateTimeFormatter;
 import static org.elasticsearch.index.mapper.core.TypeParsers.parseNumberField;
 
@@ -54,7 +53,6 @@ import org.elasticsearch.index.mapper.MapperParsingException;
 import org.elasticsearch.index.mapper.MergeContext;
 import org.elasticsearch.index.mapper.MergeMappingException;
 import org.elasticsearch.index.mapper.ParseContext;
-import org.elasticsearch.index.mapper.core.DateFieldMapper;
 import org.elasticsearch.index.mapper.core.LongFieldMapper.CustomLongNumericField;
 import org.elasticsearch.index.mapper.core.NumberFieldMapper;
 import org.elasticsearch.index.query.QueryParseContext;
@@ -164,7 +162,8 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                 final Map<String, Object> node,
                 final ParserContext parserContext)
                 throws MapperParsingException {
-            final DateFieldMapper.Builder builder = dateField(name);
+            final SolrDateFieldMapper.Builder builder = new SolrDateFieldMapper.Builder(
+                    name);
             parseNumberField(builder, name, node, parserContext);
             for (final Map.Entry<String, Object> entry : node.entrySet()) {
                 final String propName = Strings
