@@ -84,16 +84,9 @@ public class SolrSearchRestAction extends BaseRestHandler {
 
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.elasticsearch.rest.RestHandler#handleRequest(org.elasticsearch.rest
-     * .RestRequest, org.elasticsearch.rest.RestChannel)
-     */
     @Override
-    public void handleRequest(final RestRequest request,
-            final RestChannel channel) {
+    protected void handleRequest(final RestRequest request,
+            final RestChannel channel, final Client client) {
         final RestRequest requestEx = new ExtendedRestRequest(request);
 
         // generate the search request

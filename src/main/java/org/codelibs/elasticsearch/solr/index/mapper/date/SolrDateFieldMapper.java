@@ -46,7 +46,6 @@ import org.elasticsearch.index.analysis.NumericDateAnalyzer;
 import org.elasticsearch.index.codec.docvaluesformat.DocValuesFormatProvider;
 import org.elasticsearch.index.codec.postingsformat.PostingsFormatProvider;
 import org.elasticsearch.index.fielddata.FieldDataType;
-import org.elasticsearch.index.fielddata.IndexFieldDataService;
 import org.elasticsearch.index.fielddata.IndexNumericFieldData;
 import org.elasticsearch.index.mapper.Mapper;
 import org.elasticsearch.index.mapper.MapperParsingException;
@@ -430,15 +429,15 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
     }
 
     @Override
-    public Filter rangeFilter(final IndexFieldDataService fieldData,
+    public Filter rangeFilter(final QueryParseContext parseContext,
             final Object lowerTerm, final Object upperTerm,
             final boolean includeLower, final boolean includeUpper,
             @Nullable final QueryParseContext context) {
-        return rangeFilter(fieldData, lowerTerm, upperTerm, includeLower,
+        return rangeFilter(parseContext, lowerTerm, upperTerm, includeLower,
                 includeUpper, context, false);
     }
 
-    public Filter rangeFilter(final IndexFieldDataService fieldData,
+    public Filter rangeFilter(final QueryParseContext parseContext,
             final Object lowerTerm, final Object upperTerm,
             final boolean includeLower, final boolean includeUpper,
             @Nullable final QueryParseContext context,
@@ -468,7 +467,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
         }
 
         final Filter filter = NumericRangeFieldDataFilter.newLongRange(
-                (IndexNumericFieldData<?>) fieldData.getForField(this),
+                (IndexNumericFieldData<?>) parseContext.getForField(this),
                 lowerVal, upperVal, includeLower, includeUpper);
         if (!cache) {
             // We don't cache range filter if `now` date expression is used and also when a compound filter wraps

@@ -135,16 +135,9 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 "/{index}/{type}/_solr/update", this);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.elasticsearch.rest.RestHandler#handleRequest(org.elasticsearch.rest
-     * .RestRequest, org.elasticsearch.rest.RestChannel)
-     */
     @Override
-    public void handleRequest(final RestRequest request,
-            final RestChannel channel) {
+    protected void handleRequest(final RestRequest request,
+            final RestChannel channel, final Client client) {
         final long startTime = System.currentTimeMillis();
 
         final RestRequest requestEx = new ExtendedRestRequest(request);
@@ -340,7 +333,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                                     channel, 0, System.currentTimeMillis()
                                             - startTime, null);
                         } else {
-                            SolrUpdateRestAction.this.deleteByQueries(
+                            SolrUpdateRestAction.this.deleteByQueries(client,
                                     requestEx, channel, startTime,
                                     deleteQueryList);
                         }
@@ -370,7 +363,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 }
             });
         } else if (!deleteQueryList.isEmpty()) {
-            deleteByQueries(requestEx, channel, startTime, deleteQueryList);
+            deleteByQueries(client, requestEx, channel, startTime,
+                    deleteQueryList);
         } else if (isCommit) {
             if (commitAsFlush) {
                 final String index = request.hasParam("index") ? request
@@ -451,8 +445,9 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         }
     }
 
-    private void deleteByQueries(final RestRequest request,
-            final RestChannel channel, final long startTime,
+    private void deleteByQueries(final Client client,
+            final RestRequest request, final RestChannel channel,
+            final long startTime,
             final List<DeleteByQueryRequest> deleteQueryList) {
         final AtomicInteger counter = new AtomicInteger(deleteQueryList.size());
         final StringBuffer failureBuf = new StringBuffer();
@@ -774,6 +769,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                     // put the field value into the map
                     // handle multiple values by putting them into a list
                     if (doc.containsKey(name) && doc.get(name) instanceof List) {
+                        @SuppressWarnings("unchecked")
                         final List<String> vals = (List<String>) doc.get(name);
                         vals.add(buf.toString());
                         doc.put(name, vals);
