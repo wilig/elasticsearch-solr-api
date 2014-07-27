@@ -23,36 +23,23 @@ The original project is [mocksolrplugin](https://github.com/mattweber/elasticsea
 
 Type the following command:
 
-    $ ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.4.0
+    $ ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.5.0
 
 ## Versions
 
 | Solr API | elasticsearch | Lucene/Solr |
 |:--------:|:-------------:|:-----------:|
-| master   | 1.2.x         | 4.8.1       |
+| master   | 1.3.x         | 4.9.0       |
+| 1.5.0    | 1.3.0         | 4.9.0       |
 | 1.4.0    | 1.2.0         | 4.8.1       |
 | 1.3.0    | 1.0.0         | 4.6.1       |
 | 1.2.2    | 0.90.5        | 4.4.0       |
-| 1.2.1    | 0.90.3        | 4.4.0       |
 
 
 ### Issues/Questions
 
 Please file an [issue](https://github.com/codelibs/elasticsearch-solr-api/issues "issue").
 (Japanese forum is [here](https://github.com/codelibs/codelibs-ja-forum "here").)
-
-
-## How do you build this plugin?
-
-Use maven to build the package
-
-    $ git clone https://github.com/codelibs/elasticsearch-solr-api.git
-    $ mvn package
-
-Then install the plugin
-
-    # if you've built it locally
-    $ $ES_HOME/bin/plugin -url file:./target/releases/elasticsearch-solr-api-*.zip -install solr-api
 
 ## How to use this plugin.
 
