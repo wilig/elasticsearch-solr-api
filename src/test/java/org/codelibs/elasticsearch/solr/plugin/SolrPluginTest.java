@@ -1,0 +1,138 @@
+package org.codelibs.elasticsearch.solr.plugin;
+
+import java.util.ArrayList;
+import java.util.Collection;
+
+import junit.framework.TestCase;
+
+import org.apache.solr.client.solrj.SolrQuery;
+import org.apache.solr.client.solrj.SolrServer;
+import org.apache.solr.client.solrj.impl.HttpSolrServer;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
+import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.SolrInputDocument;
+import org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner;
+import org.elasticsearch.common.settings.ImmutableSettings.Builder;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
+
+public class SolrPluginTest extends TestCase {
+
+    private static final String DATE_FORMATE = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
+
+    private ElasticsearchClusterRunner runner;
+
+    @Override
+    protected void setUp() throws Exception {
+        // create runner instance
+        runner = new ElasticsearchClusterRunner();
+        // create ES nodes
+        runner.onBuild(new ElasticsearchClusterRunner.Builder() {
+            @Override
+            public void build(final int number, final Builder settingsBuilder) {
+            }
+        }).build(new String[] { "-numOfNode", "1", "-indexStoreType", "ram" });
+
+        // wait for yellow status
+        runner.ensureYellow();
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        // close runner
+        runner.close();
+        // delete all files
+        runner.clean();
+    }
+
+    public void test_SolrDocument() throws Exception {
+        final String index = "sample";
+        final String type = "data";
+        final String url = "http://localhost:9201/" + index + "/" + type
+                + "/_solr";
+        final SolrServer server = new HttpSolrServer(url);
+
+        // create an index
+        runner.createIndex(index, null);
+        runner.ensureYellow(index);
+
+        // create a mapping
+        final XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()//
+                .startObject()//
+                .startObject(type)//
+                .startObject("properties")//
+                // id
+                .startObject("id")//
+                .field("type", "string")//
+                .field("index", "not_analyzed")//
+                .endObject()//
+                // name
+                .startObject("name")//
+                .field("type", "string")//
+                .endObject()//
+                // price
+                .startObject("price")//
+                .field("type", "integer")//
+                .endObject()//
+                // @timestamp
+                .startObject("@timestamp")//
+                .field("type", "solr_date")//
+                .field("format", DATE_FORMATE)//
+                .endObject()//
+                // sort_order
+                .startObject("sort_order")//
+                .field("type", "integer")//
+                .endObject()//
+                .endObject()//
+                .endObject()//
+                .endObject();
+        runner.createMapping(index, type, mappingBuilder);
+
+        for (int i = 1; i <= 1000; i++) {
+            final SolrInputDocument doc = new SolrInputDocument();
+            doc.addField("id", "id" + i, 1.0f);
+            doc.addField("name", "doc" + i + " from single", 1.0f);
+            doc.addField("price", i % 10 * 1000);
+            doc.addField("@timestamp", i % 2 == 0 ? "NOW"
+                    : "2000-01-01T00:00:00.000+0900");
+            doc.addField("sort_order", i);
+            server.add(doc);
+        }
+
+        final Collection<SolrInputDocument> docs = new ArrayList<SolrInputDocument>();
+        for (int i = 1001; i <= 2000; i++) {
+            final SolrInputDocument doc = new SolrInputDocument();
+            doc.addField("id", "id" + i, 1.0f);
+            doc.addField("name", "doc" + i + " from collection", 1.0f);
+            doc.addField("price", i % 10 * 1000);
+            doc.addField("@timestamp", i % 2 == 0 ? "NOW"
+                    : "2000-01-01T00:00:00.000+0900");
+            doc.addField("sort_order", i);
+            docs.add(doc);
+        }
+        server.add(docs);
+
+        server.commit();
+
+        final SolrQuery query = new SolrQuery();
+        query.setQuery("*:*");
+        query.addSort("sort_order", SolrQuery.ORDER.asc);
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(10, resultsDocs.size());
+        assertEquals(2000, resultsDocs.getNumFound());
+        assertEquals(0, resultsDocs.getStart());
+        assertEquals(Float.NaN, resultsDocs.getMaxScore());
+        for (int i = 1; i <= 10; i++) {
+            final SolrDocument doc = resultsDocs.get(i - 1);
+            assertEquals("id" + i, doc.getFieldValue("id"));
+            assertEquals(String.valueOf(i % 10 * 1000),
+                    doc.getFieldValue("price"));
+            assertEquals("doc" + i + " from single", doc.getFieldValue("name"));
+            assertEquals(Float.NaN, doc.getFieldValue("score"));
+            assertEquals(String.valueOf(i), doc.getFieldValue("sort_order"));
+        }
+    }
+}

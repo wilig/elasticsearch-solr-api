@@ -653,19 +653,23 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
 
     private long parseStringValue(final String value) {
         try {
-            return parseSolrDateMath(value.toUpperCase(Locale.ROOT),
-                    System.currentTimeMillis()).getTime();
-            //            return dateTimeFormatter.parser().parseMillis(value);
-        } catch (final Exception e) {
+            return dateTimeFormatter.parser().parseMillis(value);
+        } catch (final Exception ignore) {
             try {
-                final long time = Long.parseLong(value);
-                return timeUnit.toMillis(time);
-            } catch (final NumberFormatException e1) {
-                throw new MapperParsingException("failed to parse date field ["
-                        + value + "], tried both date format ["
-                        + dateTimeFormatter.format()
-                        + "], and timestamp number with locale ["
-                        + dateTimeFormatter.locale() + "]", e);
+                return parseSolrDateMath(value.toUpperCase(Locale.ROOT),
+                        System.currentTimeMillis()).getTime();
+            } catch (final Exception e) {
+                try {
+                    final long time = Long.parseLong(value);
+                    return timeUnit.toMillis(time);
+                } catch (final NumberFormatException e1) {
+                    throw new MapperParsingException(
+                            "failed to parse date field [" + value
+                                    + "], tried both date format ["
+                                    + dateTimeFormatter.format()
+                                    + "], and timestamp number with locale ["
+                                    + dateTimeFormatter.locale() + "]", e);
+                }
             }
         }
     }
