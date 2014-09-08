@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.apache.lucene.search.Explanation;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.util.JavaBinCodec;
@@ -86,8 +87,10 @@ public class SolrResponseUtils {
     public static NamedList<Object> createSearchResponse(
             final RestRequest request, final SearchResponse response) {
         final NamedList<Object> resp = new SimpleOrderedMap<Object>();
+        final NamedList<Object> debugList = new SimpleOrderedMap<Object>();
         resp.add("responseHeader", createResponseHeader(request, response));
-        resp.add("response", convertToSolrDocumentList(request, response));
+        resp.add("response",
+                convertToSolrDocumentList(request, response, debugList));
 
         // add highlight node if highlighting was requested
         final NamedList<Object> highlighting = createHighlightResponse(request,
@@ -101,6 +104,10 @@ public class SolrResponseUtils {
                 response);
         if (faceting != null) {
             resp.add("facet_counts", faceting);
+        }
+
+        if (debugList.size() > 0) {
+            resp.add("debug", debugList);
         }
 
         return resp;
@@ -244,7 +251,9 @@ public class SolrResponseUtils {
      * @return search results as a SolrDocumentList
      */
     public static SolrDocumentList convertToSolrDocumentList(
-            final RestRequest request, final SearchResponse response) {
+            final RestRequest request, final SearchResponse response,
+            final NamedList<Object> debugList) {
+        NamedList<Object> explainList = null;
         final SolrDocumentList results = new SolrDocumentList();
 
         // get the ES hits
@@ -305,8 +314,20 @@ public class SolrResponseUtils {
                 }
             }
 
+            final Explanation explanation = hit.getExplanation();
+            if (explanation != null) {
+                if (explainList == null) {
+                    explainList = new SimpleOrderedMap<Object>();
+                }
+                explainList.add(hit.getId(), explanation.toString());
+            }
+
             // add the SolrDocument to the SolrDocumentList
             results.add(doc);
+        }
+
+        if (explainList != null) {
+            debugList.add("explain", explainList);
         }
 
         return results;

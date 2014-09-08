@@ -141,6 +141,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
         final boolean facet = request.paramAsBoolean("facet", false);
         final boolean trackScores = request.paramAsBoolean("track_scores",
                 false);
+        final String debug = request.param("debug");
 
         final boolean qDsl = request.paramAsBoolean("q.dsl", false);
         final boolean fqDsl = request.paramAsBoolean("fq.dsl", false);
@@ -320,6 +321,13 @@ public class SolrSearchRestAction extends BaseRestHandler {
 
         // track score
         searchSourceBuilder.trackScores(trackScores);
+
+        // explain
+        if ("true".equalsIgnoreCase(debug) || "query".equalsIgnoreCase(debug)
+                || "timing".equalsIgnoreCase(debug)
+                || "results".equalsIgnoreCase(debug)) {
+            searchSourceBuilder.explain(true);
+        }
 
         // get index and type we want to search against
         final String index = request.param("index", defaultIndexName);

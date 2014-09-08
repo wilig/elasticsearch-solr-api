@@ -64,6 +64,33 @@ public class SolrPluginTest extends TestCase {
         test_search_query(server);
         test_search_score(server);
         test_search_trackscores(server);
+        test_search_explain(server);
+    }
+
+    private void test_search_explain(final SolrServer server)
+            throws SolrServerException {
+        final SolrQuery query = new SolrQuery();
+        query.setQuery("*:*");
+        query.addSort("sort_order", SolrQuery.ORDER.asc);
+        query.add("debug", "true");
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(10, resultsDocs.size());
+        assertEquals(2000, resultsDocs.getNumFound());
+        assertEquals(0, resultsDocs.getStart());
+        assertNotSame(Float.NaN, resultsDocs.getMaxScore());
+        for (int i = 1; i <= 10; i++) {
+            final SolrDocument doc = resultsDocs.get(i - 1);
+            assertEquals("id" + i, doc.getFieldValue("id"));
+            assertEquals(String.valueOf(i % 10 * 1000),
+                    doc.getFieldValue("price"));
+            assertEquals("doc" + i + " from single", doc.getFieldValue("name"));
+            assertNotSame(Float.NaN, doc.getFieldValue("score"));
+            assertEquals(String.valueOf(i), doc.getFieldValue("sort_order"));
+        }
+        assertEquals(1, rsp.getDebugMap().size());
+        assertEquals(10, rsp.getExplainMap().size());
     }
 
     private void test_search_trackscores(final SolrServer server)
@@ -230,6 +257,8 @@ public class SolrPluginTest extends TestCase {
             assertEquals(Float.NaN, doc.getFieldValue("score"));
             assertEquals(String.valueOf(i), doc.getFieldValue("sort_order"));
         }
+        assertNull(rsp.getExplainMap());
+        assertNull(rsp.getDebugMap());
     }
 
     private void createIndex(final String index, final String type,
