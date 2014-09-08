@@ -1,5 +1,6 @@
 package org.codelibs.elasticsearch.solr.plugin;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -7,6 +8,7 @@ import junit.framework.TestCase;
 
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServer;
+import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.HttpSolrServer;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
@@ -53,6 +55,185 @@ public class SolrPluginTest extends TestCase {
                 + "/_solr";
         final SolrServer server = new HttpSolrServer(url);
 
+        createIndex(index, type, server);
+
+        test_search(server);
+        test_search_start10_rows20(server);
+        test_search_sort(server);
+        test_search_sort_request(server);
+        test_search_query(server);
+        test_search_score(server);
+        test_search_trackscores(server);
+    }
+
+    private void test_search_trackscores(final SolrServer server)
+            throws SolrServerException {
+        final SolrQuery query = new SolrQuery();
+        query.setQuery("*:*");
+        query.addSort("sort_order", SolrQuery.ORDER.asc);
+        query.add("track_scores", "true");
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(10, resultsDocs.size());
+        assertEquals(2000, resultsDocs.getNumFound());
+        assertEquals(0, resultsDocs.getStart());
+        assertNotSame(Float.NaN, resultsDocs.getMaxScore());
+        for (int i = 1; i <= 10; i++) {
+            final SolrDocument doc = resultsDocs.get(i - 1);
+            assertEquals("id" + i, doc.getFieldValue("id"));
+            assertEquals(String.valueOf(i % 10 * 1000),
+                    doc.getFieldValue("price"));
+            assertEquals("doc" + i + " from single", doc.getFieldValue("name"));
+            assertNotSame(Float.NaN, doc.getFieldValue("score"));
+            assertEquals(String.valueOf(i), doc.getFieldValue("sort_order"));
+        }
+    }
+
+    private void test_search_score(final SolrServer server)
+            throws SolrServerException {
+        final SolrQuery query = new SolrQuery();
+        query.setQuery("id:id1");
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(1, resultsDocs.size());
+        assertEquals(1, resultsDocs.getNumFound());
+        assertEquals(0, resultsDocs.getStart());
+        assertNotSame(Float.NaN, resultsDocs.getMaxScore());
+        final SolrDocument doc = resultsDocs.get(0);
+        assertEquals("id1", doc.getFieldValue("id"));
+        assertEquals("1000", doc.getFieldValue("price"));
+        assertEquals("doc1 from single", doc.getFieldValue("name"));
+        assertNotSame(Float.NaN, doc.getFieldValue("score"));
+        assertEquals("1", doc.getFieldValue("sort_order"));
+    }
+
+    private void test_search_query(final SolrServer server)
+            throws SolrServerException {
+        final SolrQuery query = new SolrQuery();
+        query.setQuery("price:1000 AND name:single");
+        query.addSort("sort_order", SolrQuery.ORDER.asc);
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(10, resultsDocs.size());
+        assertEquals(100, resultsDocs.getNumFound());
+        assertEquals(0, resultsDocs.getStart());
+        assertEquals(Float.NaN, resultsDocs.getMaxScore());
+        for (int i = 0; i < 10; i++) {
+            final int num = i * 10 + 1;
+            final SolrDocument doc = resultsDocs.get(i);
+            assertEquals("id" + num, doc.getFieldValue("id"));
+            assertEquals(String.valueOf(1000), doc.getFieldValue("price"));
+            assertEquals("doc" + num + " from single",
+                    doc.getFieldValue("name"));
+            assertEquals(Float.NaN, doc.getFieldValue("score"));
+            assertEquals(String.valueOf(num), doc.getFieldValue("sort_order"));
+        }
+    }
+
+    private void test_search_sort_request(final SolrServer server)
+            throws SolrServerException {
+        final SolrQuery query = new SolrQuery();
+        query.setQuery("*:*");
+        query.add("sort", "price asc", "sort_order desc");
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(10, resultsDocs.size());
+        assertEquals(2000, resultsDocs.getNumFound());
+        assertEquals(0, resultsDocs.getStart());
+        assertEquals(Float.NaN, resultsDocs.getMaxScore());
+        for (int i = 0; i < 10; i++) {
+            final SolrDocument doc = resultsDocs.get(i);
+            assertEquals("id" + (2000 - i * 10), doc.getFieldValue("id"));
+            assertEquals("0", doc.getFieldValue("price"));
+            assertEquals("doc" + (2000 - i * 10) + " from collection",
+                    doc.getFieldValue("name"));
+            assertEquals(Float.NaN, doc.getFieldValue("score"));
+            assertEquals(String.valueOf(2000 - i * 10),
+                    doc.getFieldValue("sort_order"));
+        }
+    }
+
+    private void test_search_sort(final SolrServer server)
+            throws SolrServerException {
+        final SolrQuery query = new SolrQuery();
+        query.setQuery("*:*");
+        query.addSort("price", SolrQuery.ORDER.asc);
+        query.addSort("sort_order", SolrQuery.ORDER.desc);
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(10, resultsDocs.size());
+        assertEquals(2000, resultsDocs.getNumFound());
+        assertEquals(0, resultsDocs.getStart());
+        assertEquals(Float.NaN, resultsDocs.getMaxScore());
+        for (int i = 0; i < 10; i++) {
+            final SolrDocument doc = resultsDocs.get(i);
+            assertEquals("id" + (2000 - i * 10), doc.getFieldValue("id"));
+            assertEquals("0", doc.getFieldValue("price"));
+            assertEquals("doc" + (2000 - i * 10) + " from collection",
+                    doc.getFieldValue("name"));
+            assertEquals(Float.NaN, doc.getFieldValue("score"));
+            assertEquals(String.valueOf(2000 - i * 10),
+                    doc.getFieldValue("sort_order"));
+        }
+    }
+
+    private void test_search_start10_rows20(final SolrServer server)
+            throws SolrServerException {
+        final SolrQuery query = new SolrQuery();
+        query.setStart(10);
+        query.setRows(20);
+        query.setQuery("*:*");
+        query.addSort("sort_order", SolrQuery.ORDER.asc);
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(20, resultsDocs.size());
+        assertEquals(2000, resultsDocs.getNumFound());
+        assertEquals(10, resultsDocs.getStart());
+        assertEquals(Float.NaN, resultsDocs.getMaxScore());
+        for (int i = 0; i < 20; i++) {
+            final int num = i + 11;
+            final SolrDocument doc = resultsDocs.get(i);
+            assertEquals("id" + num, doc.getFieldValue("id"));
+            assertEquals(String.valueOf(num % 10 * 1000),
+                    doc.getFieldValue("price"));
+            assertEquals("doc" + num + " from single",
+                    doc.getFieldValue("name"));
+            assertEquals(Float.NaN, doc.getFieldValue("score"));
+            assertEquals(String.valueOf(num), doc.getFieldValue("sort_order"));
+        }
+    }
+
+    private void test_search(final SolrServer server)
+            throws SolrServerException {
+        final SolrQuery query = new SolrQuery();
+        query.setQuery("*:*");
+        query.addSort("sort_order", SolrQuery.ORDER.asc);
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(10, resultsDocs.size());
+        assertEquals(2000, resultsDocs.getNumFound());
+        assertEquals(0, resultsDocs.getStart());
+        assertEquals(Float.NaN, resultsDocs.getMaxScore());
+        for (int i = 1; i <= 10; i++) {
+            final SolrDocument doc = resultsDocs.get(i - 1);
+            assertEquals("id" + i, doc.getFieldValue("id"));
+            assertEquals(String.valueOf(i % 10 * 1000),
+                    doc.getFieldValue("price"));
+            assertEquals("doc" + i + " from single", doc.getFieldValue("name"));
+            assertEquals(Float.NaN, doc.getFieldValue("score"));
+            assertEquals(String.valueOf(i), doc.getFieldValue("sort_order"));
+        }
+    }
+
+    private void createIndex(final String index, final String type,
+            final SolrServer server) throws IOException, SolrServerException {
         // create an index
         runner.createIndex(index, null);
         runner.ensureYellow(index);
@@ -114,25 +295,5 @@ public class SolrPluginTest extends TestCase {
         server.add(docs);
 
         server.commit();
-
-        final SolrQuery query = new SolrQuery();
-        query.setQuery("*:*");
-        query.addSort("sort_order", SolrQuery.ORDER.asc);
-
-        final QueryResponse rsp = server.query(query);
-        final SolrDocumentList resultsDocs = rsp.getResults();
-        assertEquals(10, resultsDocs.size());
-        assertEquals(2000, resultsDocs.getNumFound());
-        assertEquals(0, resultsDocs.getStart());
-        assertEquals(Float.NaN, resultsDocs.getMaxScore());
-        for (int i = 1; i <= 10; i++) {
-            final SolrDocument doc = resultsDocs.get(i - 1);
-            assertEquals("id" + i, doc.getFieldValue("id"));
-            assertEquals(String.valueOf(i % 10 * 1000),
-                    doc.getFieldValue("price"));
-            assertEquals("doc" + i + " from single", doc.getFieldValue("name"));
-            assertEquals(Float.NaN, doc.getFieldValue("score"));
-            assertEquals(String.valueOf(i), doc.getFieldValue("sort_order"));
-        }
     }
 }

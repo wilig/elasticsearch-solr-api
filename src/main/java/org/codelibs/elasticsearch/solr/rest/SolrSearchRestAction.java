@@ -131,11 +131,16 @@ public class SolrSearchRestAction extends BaseRestHandler {
         final String q = request.param("q", null);
         final int start = request.paramAsInt("start", 0);
         final int rows = request.paramAsInt("rows", 10);
-        final String fl = request.param("fl", null);
-        final String sort = request.param("sort", null);
-        final String[] fqs = request.paramAsStringArray("fq", new String[0]);
+        final String[] fl = request.paramAsStringArray("fl",
+                Strings.EMPTY_ARRAY);
+        final String[] sort = request.paramAsStringArray("sort",
+                Strings.EMPTY_ARRAY);
+        final String[] fqs = request.paramAsStringArray("fq",
+                Strings.EMPTY_ARRAY);
         final boolean hl = request.paramAsBoolean("hl", false);
         final boolean facet = request.paramAsBoolean("facet", false);
+        final boolean trackScores = request.paramAsBoolean("track_scores",
+                false);
 
         final boolean qDsl = request.paramAsBoolean("q.dsl", false);
         final boolean fqDsl = request.paramAsBoolean("fq.dsl", false);
@@ -192,19 +197,18 @@ public class SolrSearchRestAction extends BaseRestHandler {
 
         // parse fl into individual fields
         // solr supports separating by comma or spaces
-        if (fl != null) {
-            if (!Strings.hasText(fl)) {
-                searchSourceBuilder.noFields();
-            } else {
-                searchSourceBuilder.fields(fl.split("\\s|,"));
+        if (fl.length > 0) {
+            for (final String field : fl) {
+                if (Strings.hasText(field)) {
+                    searchSourceBuilder.fields(field.trim());
+                }
             }
         }
 
         // handle sorting
-        if (sort != null) {
-            final String[] sorts = Strings.splitStringByCommaToArray(sort);
-            for (final String sort2 : sorts) {
-                final String sortStr = sort2.trim();
+        if (sort.length > 0) {
+            for (final String s : sort) {
+                final String sortStr = s.trim();
                 final int delimiter = sortStr.lastIndexOf(" ");
                 if (delimiter != -1) {
                     String sortField = sortStr.substring(0, delimiter);
@@ -313,6 +317,9 @@ public class SolrSearchRestAction extends BaseRestHandler {
                 }
             }
         }
+
+        // track score
+        searchSourceBuilder.trackScores(trackScores);
 
         // get index and type we want to search against
         final String index = request.param("index", defaultIndexName);

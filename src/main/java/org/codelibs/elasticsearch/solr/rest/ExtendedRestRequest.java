@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.elasticsearch.ElasticsearchIllegalArgumentException;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
@@ -171,6 +172,9 @@ public class ExtendedRestRequest extends RestRequest {
             final String[] defaultValue) {
         final List<String> list = getParameterMap().get(key);
         if (list != null) {
+            if (list.size() == 1) {
+                return Strings.splitStringByCommaToArray(list.get(0));
+            }
             return list.toArray(new String[list.size()]);
         }
         return defaultValue;
