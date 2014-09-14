@@ -251,8 +251,8 @@ public class ExtendedRestRequest extends RestRequest {
         if (sValue == null) {
             return defaultValue;
         }
-        return !(sValue.equals("false") || sValue.equals("0") || sValue
-                .equals("off"));
+        return !("false".equals(sValue) || "0".equals(sValue) || "off"
+                .equals(sValue));
     }
 
     @Override
@@ -318,7 +318,7 @@ public class ExtendedRestRequest extends RestRequest {
             uriBuf.append(parent.content().toUtf8());
         }
 
-        Map<String, List<String>> requestParamMap = new HashMap<String, List<String>>();
+        Map<String, List<String>> requestParamMap;
         final String uri = uriBuf.toString();
         final int pathLength = getPath(uri).length();
         if (uri.length() == pathLength) {

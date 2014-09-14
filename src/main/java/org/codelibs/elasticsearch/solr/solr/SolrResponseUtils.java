@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -43,6 +44,12 @@ public class SolrResponseUtils {
     private static final ESLogger logger = Loggers
             .getLogger(SolrResponseUtils.class);
 
+    private static final char[] XML_START1 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            .toCharArray();
+
+    private static final char[] XML_START2_NOSCHEMA = "<response>\n"
+            .toCharArray();
+
     private static final String CONTENT_TYPE_OCTET = "application/octet-stream";
 
     private static final String CONTENT_TYPE_XML = "application/xml; charset=UTF-8";
@@ -51,7 +58,7 @@ public class SolrResponseUtils {
 
     // regex and date format to detect ISO8601 date formats
     private static final Pattern ISO_DATE_PATTERN = Pattern
-            .compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z");;
+            .compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z");
 
     private static final String YYYY_MM_DD_T_HH_MM_SS_Z = "yyyy-MM-dd'T'HH:mm:ss'Z'";
 
@@ -62,12 +69,12 @@ public class SolrResponseUtils {
 
     private static Date parseISODateFormat(final String value) {
         try {
-            return new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_SSS_Z)
-                    .parse(value);
+            return new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_SSS_Z,
+                    Locale.ROOT).parse(value);
         } catch (final ParseException e) {
             try {
-                return new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_Z)
-                        .parse(value);
+                return new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_Z,
+                        Locale.ROOT).parse(value);
             } catch (final ParseException e1) {
                 throw new ElasticsearchException("Could not parse " + value, e);
             }
@@ -297,8 +304,10 @@ public class SolrResponseUtils {
                     }
                 }
             } else {
-                for (final String fieldName : fields.keySet()) {
-                    final SearchHitField field = fields.get(fieldName);
+                for (final Map.Entry<String, SearchHitField> entry : fields
+                        .entrySet()) {
+                    final String fieldName = entry.getKey();
+                    final SearchHitField field = entry.getValue();
                     Object fieldValue = field.getValue();
 
                     // ES does not return date fields as Date Objects
@@ -393,8 +402,8 @@ public class SolrResponseUtils {
 
         // try to serialize the data to xml
         try {
-            writer.write(XMLWriter.XML_START1);
-            writer.write(XMLWriter.XML_START2_NOSCHEMA);
+            writer.write(XML_START1);
+            writer.write(XML_START2_NOSCHEMA);
 
             // initialize the xml writer
             final XMLWriter xw = new XMLWriter(writer);

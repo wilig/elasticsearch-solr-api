@@ -229,6 +229,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                         }
                         // rollback is not supported at the moment..
                         break;
+                    default:
+                        break;
                     }
                 }
             } catch (final Exception e) {
@@ -450,7 +452,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             final long startTime,
             final List<DeleteByQueryRequest> deleteQueryList) {
         final AtomicInteger counter = new AtomicInteger(deleteQueryList.size());
-        final StringBuffer failureBuf = new StringBuffer();
+        final StringBuilder failureBuf = new StringBuilder(200);
         for (final DeleteByQueryRequest deleteQueryRequest : deleteQueryList) {
             client.deleteByQuery(deleteQueryRequest,
                     new ActionListener<DeleteByQueryResponse>() {
@@ -788,6 +790,8 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             case XMLStreamConstants.CHARACTERS:
                 // save all text data
                 buf.append(parser.getText());
+                break;
+            default:
                 break;
             }
         }

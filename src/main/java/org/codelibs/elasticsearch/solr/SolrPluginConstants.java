@@ -16,4 +16,6 @@ public class SolrPluginConstants {
 
     public static final String NONE_FORMAT_TYPE = "none";
 
+    private SolrPluginConstants() {
+    }
 }

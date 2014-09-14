@@ -41,15 +41,6 @@ import org.elasticsearch.common.joda.time.format.DateTimeFormatter;
  */
 final public class XMLWriter {
 
-    //
-    // static thread safe part
-    //
-    public static final char[] XML_START1 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            .toCharArray();
-
-    public static final char[] XML_START2_NOSCHEMA = "<response>\n"
-            .toCharArray();
-
     // //////////////////////////////////////////////////////////
     // request instance specific (non-static, not shared between threads)
     // //////////////////////////////////////////////////////////
@@ -206,13 +197,14 @@ final public class XMLWriter {
     }
 
     private final void writeDocuments(final String name,
-            final DocumentListInfo docs, Set<String> fields) throws IOException {
+            final DocumentListInfo docs, final Set<String> fields) throws IOException {
         boolean includeScore = false;
+        Set<String> value = fields;
         if (fields != null) {
             includeScore = fields.contains("score");
             if (fields.size() == 0 || fields.size() == 1 && includeScore
                     || fields.contains("*")) {
-                fields = null; // null means return all stored fields
+                value = null; // null means return all stored fields
             }
         }
 
@@ -236,7 +228,7 @@ final public class XMLWriter {
             writer.write('>');
         }
 
-        docs.writeDocs(includeScore, fields);
+        docs.writeDocs(includeScore, value);
 
         writer.write("</result>");
     }

@@ -210,7 +210,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
         if (sort.length > 0) {
             for (final String s : sort) {
                 final String sortStr = s.trim();
-                final int delimiter = sortStr.lastIndexOf(" ");
+                final int delimiter = sortStr.lastIndexOf(' ');
                 if (delimiter != -1) {
                     String sortField = sortStr.substring(0, delimiter);
                     if ("score".equals(sortField)) {
@@ -297,7 +297,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
                     termsFacetBuilder.size(facetLimit);
                     termsFacetBuilder.field(facetField);
 
-                    if (facetSort != null && facetSort.equals("index")) {
+                    if (facetSort != null && "index".equals(facetSort)) {
                         termsFacetBuilder.order(TermsFacet.ComparatorType.TERM);
                     } else {
                         termsFacetBuilder
