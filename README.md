@@ -23,14 +23,14 @@ The original project is [mocksolrplugin](https://github.com/mattweber/elasticsea
 
 Type the following command:
 
-    $ ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.5.0
+    $ ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.5.1
 
 ## Versions
 
 | Solr API | elasticsearch | Lucene/Solr |
 |:--------:|:-------------:|:-----------:|
 | master   | 1.3.x         | 4.9.0       |
-| 1.5.0    | 1.3.0         | 4.9.0       |
+| 1.5.1    | 1.3.2         | 4.9.0       |
 | 1.4.0    | 1.2.0         | 4.8.1       |
 | 1.3.0    | 1.0.0         | 4.6.1       |
 | 1.2.2    | 0.90.5        | 4.4.0       |
@@ -45,7 +45,7 @@ Please file an [issue](https://github.com/codelibs/elasticsearch-solr-api/issues
 
 Just point your Solr client/tool to your elasticsearch instance and appending /_solr to the url.
 
-    http://localhost:9200/[index]/[type]/_solr
+    http://localhost:9200/[index]/[type]/_solr/[select|update]
 
 * [index] - the elasticsearch index you want to index/search against. Default "solr".
 * [type] - the elasticsearch type you want to index/search against. Default "docs".
