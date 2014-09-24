@@ -1,11 +1,9 @@
 package org.codelibs.elasticsearch.solr.rest;
 
-import static org.elasticsearch.common.unit.ByteSizeValue.parseBytesSizeValue;
-import static org.elasticsearch.common.unit.TimeValue.parseTimeValue;
+import static org.elasticsearch.common.unit.ByteSizeValue.*;
+import static org.elasticsearch.common.unit.TimeValue.*;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.nio.charset.UnsupportedCharsetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -15,6 +13,8 @@ import java.util.Map;
 import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.bytes.BytesReference;
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.rest.RestRequest;
@@ -24,6 +24,9 @@ import org.elasticsearch.rest.RestRequest;
  *
  */
 public class ExtendedRestRequest extends RestRequest {
+    private static ESLogger logger = ESLoggerFactory
+            .getLogger(ExtendedRestRequest.class.getName());
+
     private RestRequest parent;
 
     private volatile Map<String, List<String>> paramMap;
@@ -93,8 +96,11 @@ public class ExtendedRestRequest extends RestRequest {
 
         try {
             return URLDecoder.decode(s, charset);
-        } catch (final UnsupportedEncodingException e) {
-            throw new UnsupportedCharsetException(charset);
+        } catch (final Exception e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Failed to decode {} by {}", s, charset);
+            }
+            return s;
         }
     }
 
