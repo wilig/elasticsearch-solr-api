@@ -1,8 +1,12 @@
 package org.codelibs.elasticsearch.solr.plugin;
 
+import static org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner.newConfigs;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 import junit.framework.TestCase;
 
@@ -10,6 +14,7 @@ import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.HttpSolrServer;
+import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
@@ -34,7 +39,7 @@ public class SolrPluginTest extends TestCase {
             @Override
             public void build(final int number, final Builder settingsBuilder) {
             }
-        }).build(new String[] { "-numOfNode", "1", "-indexStoreType", "ram" });
+        }).build(newConfigs().numOfNode(1).ramIndexStore());
 
         // wait for yellow status
         runner.ensureYellow();
@@ -57,14 +62,54 @@ public class SolrPluginTest extends TestCase {
 
         createIndex(index, type, server);
 
-        test_search(server);
-        test_search_start10_rows20(server);
-        test_search_sort(server);
-        test_search_sort_request(server);
-        test_search_query(server);
-        test_search_score(server);
-        test_search_trackscores(server);
-        test_search_explain(server);
+        //		test_search(server);
+        //		test_search_start10_rows20(server);
+        //		test_search_sort(server);
+        //		test_search_sort_request(server);
+        //		test_search_query(server);
+        //		test_search_score(server);
+        //		test_search_trackscores(server);
+        //		test_search_explain(server);
+        test_search_facet(server);
+    }
+
+    private void test_search_facet(final SolrServer server)
+            throws SolrServerException {
+        final SolrQuery query = new SolrQuery();
+        query.setQuery("*:*");
+        query.addSort("sort_order", SolrQuery.ORDER.asc);
+        query.addFacetField("price");
+        query.addFacetQuery("price:1000 AND name:single");
+        query.addFacetQuery("price:1000 AND name:collection");
+
+        final QueryResponse rsp = server.query(query);
+        final SolrDocumentList resultsDocs = rsp.getResults();
+        assertEquals(10, resultsDocs.size());
+        assertEquals(2000, resultsDocs.getNumFound());
+        assertEquals(0, resultsDocs.getStart());
+        assertEquals(Float.NaN, resultsDocs.getMaxScore());
+        for (int i = 1; i <= 10; i++) {
+            final SolrDocument doc = resultsDocs.get(i - 1);
+            assertEquals("id" + i, doc.getFieldValue("id"));
+            assertEquals(String.valueOf(i % 10 * 1000),
+                    doc.getFieldValue("price"));
+            assertEquals("doc" + i + " from single", doc.getFieldValue("name"));
+            assertEquals(Float.NaN, doc.getFieldValue("score"));
+            assertEquals(String.valueOf(i), doc.getFieldValue("sort_order"));
+        }
+        assertNull(rsp.getExplainMap());
+        assertNull(rsp.getDebugMap());
+        List<FacetField> facetFields = rsp.getFacetFields();
+        assertEquals(1, facetFields.size());
+        FacetField facetField = facetFields.get(0);
+        assertEquals("price", facetField.getName());
+        assertEquals(10, facetField.getValues().size());
+        Map<String, Integer> facetQuery = rsp.getFacetQuery();
+        assertEquals(2, facetQuery.size());
+        assertEquals(100, facetQuery.get("price:1000 AND name:single")
+                .intValue());
+        assertEquals(100, facetQuery.get("price:1000 AND name:collection")
+                .intValue());
     }
 
     private void test_search_explain(final SolrServer server)

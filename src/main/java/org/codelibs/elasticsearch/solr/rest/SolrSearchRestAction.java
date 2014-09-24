@@ -5,6 +5,7 @@ import static org.elasticsearch.index.query.FilterBuilders.queryFilter;
 
 import java.io.IOException;
 
+import org.apache.commons.codec.Charsets;
 import org.codelibs.elasticsearch.solr.SolrPluginConstants;
 import org.codelibs.elasticsearch.solr.solr.SolrResponseUtils;
 import org.elasticsearch.action.ActionListener;
@@ -16,6 +17,7 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.AndFilterBuilder;
 import org.elasticsearch.index.query.FilterBuilder;
+import org.elasticsearch.index.query.FilterBuilders;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.BaseRestHandler;
@@ -23,13 +25,16 @@ import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms.Order;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.facet.query.QueryFacetBuilder;
-import org.elasticsearch.search.facet.terms.TermsFacet;
-import org.elasticsearch.search.facet.terms.TermsFacetBuilder;
 import org.elasticsearch.search.highlight.HighlightBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+
+import com.google.common.io.BaseEncoding;
 
 public class SolrSearchRestAction extends BaseRestHandler {
 
@@ -285,36 +290,41 @@ public class SolrSearchRestAction extends BaseRestHandler {
             final String[] facetFields = request.paramAsStringArray(
                     "facet.field", new String[0]);
             final String facetSort = request.param("facet.sort", null);
-            final int facetLimit = request.paramAsInt("facet.limit", 100);
-
-            final String[] facetQueries = request.paramAsStringArray(
-                    "facet.query", new String[0]);
-
+            int facetLimit = request.paramAsInt("facet.limit", 100);
+            if (facetLimit < 0) {
+                facetLimit = Integer.MAX_VALUE;
+            }
             if (facetFields.length > 0) {
                 for (final String facetField : facetFields) {
-                    final TermsFacetBuilder termsFacetBuilder = new TermsFacetBuilder(
-                            facetField);
-                    termsFacetBuilder.size(facetLimit);
-                    termsFacetBuilder.field(facetField);
-
+                    Order order;
                     if (facetSort != null && "index".equals(facetSort)) {
-                        termsFacetBuilder.order(TermsFacet.ComparatorType.TERM);
+                        order = Order.term(true);
                     } else {
-                        termsFacetBuilder
-                                .order(TermsFacet.ComparatorType.COUNT);
+                        order = Order.count(false);
                     }
-
-                    searchSourceBuilder.facet(termsFacetBuilder);
+                    String encodedField = BaseEncoding.base64().encode(
+                            facetField.getBytes(Charsets.UTF_8));
+                    TermsBuilder termsBuilder = AggregationBuilders
+                            .terms(SolrPluginConstants.FACET_FIELD_PREFIX
+                                    + encodedField).field(facetField)
+                            .size(facetLimit).order(order);
+                    searchSourceBuilder.aggregation(termsBuilder);
                 }
             }
 
+            final String[] facetQueries = request.paramAsStringArray(
+                    "facet.query", new String[0]);
             if (facetQueries.length > 0) {
-                for (final String facetQuery : facetQueries) {
-                    final QueryFacetBuilder queryFacetBuilder = new QueryFacetBuilder(
-                            facetQuery);
-                    queryFacetBuilder.query(QueryBuilders
-                            .queryString(facetQuery));
-                    searchSourceBuilder.facet(queryFacetBuilder);
+                for (int i = 0; i < facetQueries.length; i++) {
+                    final String facetQuery = facetQueries[i];
+                    final String encodedFacetQuery = BaseEncoding.base64()
+                            .encode(facetQuery.getBytes(Charsets.UTF_8));
+                    FilterAggregationBuilder filterAggregationBuilder = AggregationBuilders
+                            .filter(SolrPluginConstants.FACET_QUERY_PREFIX + i
+                                    + '_' + encodedFacetQuery).filter(
+                                    FilterBuilders.queryFilter(QueryBuilders
+                                            .queryString(facetQuery)));
+                    searchSourceBuilder.aggregation(filterAggregationBuilder);
                 }
             }
         }

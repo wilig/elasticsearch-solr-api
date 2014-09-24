@@ -8,6 +8,8 @@ import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -24,6 +26,8 @@ import org.apache.solr.common.util.SimpleOrderedMap;
 import org.codelibs.elasticsearch.solr.SolrPluginConstants;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.base.Charsets;
+import org.elasticsearch.common.collect.Tuple;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.text.Text;
@@ -34,10 +38,12 @@ import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.facet.Facet;
-import org.elasticsearch.search.facet.query.QueryFacet;
-import org.elasticsearch.search.facet.terms.TermsFacet;
+import org.elasticsearch.search.aggregations.Aggregation;
+import org.elasticsearch.search.aggregations.bucket.filter.Filter;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.highlight.HighlightField;
+
+import com.google.common.io.BaseEncoding;
 
 public class SolrResponseUtils {
 
@@ -213,24 +219,55 @@ public class SolrResponseUtils {
 
             // loop though all the facets populating the NamedLists we just
             // created
-            final Iterator<Facet> facetIter = response.getFacets().iterator();
+            final Iterator<Aggregation> facetIter = response.getAggregations()
+                    .iterator();
+            List<Tuple<String, Integer>> facetQueryList = null;
             while (facetIter.hasNext()) {
-                final Facet facet = facetIter.next();
-                if (facet.getType().equals(TermsFacet.TYPE)) {
+                final Aggregation facet = facetIter.next();
+                if (facet.getName().startsWith(
+                        SolrPluginConstants.FACET_FIELD_PREFIX)) {
                     // we have term facet, create NamedList to store terms
-                    final TermsFacet termFacet = (TermsFacet) facet;
+                    final Terms termFacet = (Terms) facet;
                     final NamedList<Object> termFacetObj = new SimpleOrderedMap<Object>();
-                    for (final TermsFacet.Entry tfEntry : termFacet
-                            .getEntries()) {
-                        termFacetObj.add(tfEntry.getTerm().string(),
-                                tfEntry.getCount());
+                    for (final Terms.Bucket tfEntry : termFacet.getBuckets()) {
+                        termFacetObj.add(tfEntry.getKeyAsText().string(),
+                                (int) tfEntry.getDocCount());
                     }
 
-                    termFacets.add(facet.getName(), termFacetObj);
-                } else if (facet.getType().equals(QueryFacet.TYPE)) {
-                    final QueryFacet queryFacet = (QueryFacet) facet;
-                    queryFacets.add(queryFacet.getName(),
-                            (int) queryFacet.getCount());
+                    String encodedField = facet.getName().substring(
+                            SolrPluginConstants.FACET_FIELD_PREFIX.length());
+                    termFacets.add(
+                            new String(BaseEncoding.base64().decode(
+                                    encodedField), Charsets.UTF_8),
+                            termFacetObj);
+                } else if (facet.getName().startsWith(
+                        SolrPluginConstants.FACET_QUERY_PREFIX)) {
+                    if (facetQueryList == null) {
+                        facetQueryList = new ArrayList<>();
+                    }
+                    final Filter queryFacet = (Filter) facet;
+                    String encodedQuery = queryFacet.getName().substring(
+                            SolrPluginConstants.FACET_QUERY_PREFIX.length());
+                    facetQueryList.add(new Tuple<String, Integer>(encodedQuery,
+                            (int) queryFacet.getDocCount()));
+                }
+            }
+
+            if (facetQueryList != null) {
+                Collections.sort(facetQueryList,
+                        new Comparator<Tuple<String, Integer>>() {
+                            @Override
+                            public int compare(Tuple<String, Integer> o1,
+                                    Tuple<String, Integer> o2) {
+                                return o1.v1().compareTo(o2.v1());
+                            }
+                        });
+                for (Tuple<String, Integer> tuple : facetQueryList) {
+                    int pos = tuple.v1().indexOf('_');
+                    queryFacets.add(
+                            new String(BaseEncoding.base64().decode(
+                                    tuple.v1().substring(pos + 1)),
+                                    Charsets.UTF_8), tuple.v2());
                 }
             }
 

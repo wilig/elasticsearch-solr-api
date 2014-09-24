@@ -16,6 +16,10 @@ public class SolrPluginConstants {
 
     public static final String NONE_FORMAT_TYPE = "none";
 
+    public static final String FACET_FIELD_PREFIX = "facet_field_";
+
+    public static final String FACET_QUERY_PREFIX = "facet_query_";
+
     private SolrPluginConstants() {
     }
 }
