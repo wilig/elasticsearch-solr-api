@@ -99,7 +99,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
     @Inject
     public SolrUpdateRestAction(final Settings settings, final Client client,
             final RestController restController) {
-        super(settings, client);
+        super(settings, restController, client);
 
         hashIds = settings.getAsBoolean("solr.hashIds", false);
         commitAsFlush = settings.getAsBoolean("solr.commitAsFlush", true);

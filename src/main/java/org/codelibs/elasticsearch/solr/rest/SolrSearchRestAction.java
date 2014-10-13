@@ -59,7 +59,7 @@ public class SolrSearchRestAction extends BaseRestHandler {
     @Inject
     public SolrSearchRestAction(final Settings settings, final Client client,
             final RestController restController) {
-        super(settings, client);
+        super(settings, restController, client);
 
         defaultIndexName = settings.get("solr.default.index",
                 SolrPluginConstants.DEFAULT_INDEX_NAME);

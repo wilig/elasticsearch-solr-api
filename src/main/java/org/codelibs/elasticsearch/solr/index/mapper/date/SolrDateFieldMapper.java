@@ -26,6 +26,7 @@ import org.apache.lucene.search.NumericRangeFilter;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.NumericUtils;
 import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.Explicit;
@@ -171,8 +172,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                 if (propName.equals("null_value")) {
                     builder.nullValue(propNode.toString());
                 } else if (propName.equals("format")) {
-                    builder.dateTimeFormatter(parseDateTimeFormatter(propName,
-                            propNode));
+                    builder.dateTimeFormatter(parseDateTimeFormatter(propNode));
                 } else if (propName.equals("numeric_resolution")) {
                     builder.timeUnit(TimeUnit.valueOf(propNode.toString()
                             .toUpperCase(Locale.ROOT)));
@@ -284,9 +284,9 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
 
     @Override
     public BytesRef indexedValueForSearch(final Object value) {
-        final BytesRef bytesRef = new BytesRef();
+        BytesRefBuilder bytesRef = new BytesRefBuilder();
         NumericUtils.longToPrefixCoded(parseValue(value), 0, bytesRef); // 0 because of exact match
-        return bytesRef;
+        return bytesRef.get();
     }
 
     private long parseValue(final Object value) {
@@ -467,7 +467,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
         }
 
         final Filter filter = NumericRangeFieldDataFilter.newLongRange(
-                (IndexNumericFieldData<?>) parseContext.getForField(this),
+                (IndexNumericFieldData) parseContext.getForField(this),
                 lowerVal, upperVal, includeLower, includeUpper);
         if (!cache) {
             // We don't cache range filter if `now` date expression is used and also when a compound filter wraps
@@ -591,7 +591,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                 fields.add(field);
             }
             if (hasDocValues()) {
-                addDocValue(context, value);
+                addDocValue(context, fields, value);
             }
         }
     }
