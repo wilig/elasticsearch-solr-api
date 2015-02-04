@@ -59,6 +59,8 @@ public class SolrResponseUtils {
     private static final String CONTENT_TYPE_OCTET = "application/octet-stream";
 
     private static final String CONTENT_TYPE_XML = "application/xml; charset=UTF-8";
+    
+    private static final String CONTENT_TYPE_JSON = "application/json; charset=UTF-8";
 
     public static final Charset UTF_8 = Charset.forName("UTF-8");
 
@@ -395,10 +397,15 @@ public class SolrResponseUtils {
         // determine what kind of output writer the Solr client is expecting
         final String wt = request.hasParam("wt") ? request.param("wt")
                 .toLowerCase() : SolrPluginConstants.XML_FORMAT_TYPE;
+               
+        final String jsonnl = request.hasParam("json.nl") ? request.param("json.nl")
+                .toLowerCase() : "";
 
         // determine what kind of response we need to send
         if (wt.equals(SolrPluginConstants.XML_FORMAT_TYPE)) {
             writeXmlResponse(obj, channel);
+        } else if (wt.equals(SolrPluginConstants.JSON_FORMAT_TYPE)) {
+            writeJsonResponse(obj, channel, jsonnl);
         } else if (wt.equals(SolrPluginConstants.JAVABIN_FORMAT_TYPE)) {
             writeJavaBinResponse(obj, channel);
         } else {
@@ -464,4 +471,33 @@ public class SolrResponseUtils {
                         : RestStatus.OK, CONTENT_TYPE_XML, writer.toString()
                         .getBytes(UTF_8)));
     }
+    
+    public static void writeJsonResponse(final NamedList<Object> obj,
+            final RestChannel channel) {
+    	writeJsonResponse(obj, channel, "");
+    }
+    
+    public static void writeJsonResponse(final NamedList<Object> obj,
+            final RestChannel channel, final String namedListStyle) {
+    	
+    	final Writer writer = new StringWriter();
+    	
+        // try to serialize the data to xml
+        try {
+        	JSONWriter jw = new JSONWriter(writer);
+        	jw.setNamedListStyle(namedListStyle);
+            jw.write(obj);
+            writer.close();
+        } catch (Exception e) {
+        	logger.error("Error writing JSON response", e);
+        }
+        
+        final Object errorResponse = obj.get("error");
+        channel.sendResponse(new BytesRestResponse(
+                errorResponse != null ? RestStatus.INTERNAL_SERVER_ERROR
+                        : RestStatus.OK, CONTENT_TYPE_JSON, writer.toString()
+                        .getBytes(UTF_8)));
+
+    }
+    
 }
