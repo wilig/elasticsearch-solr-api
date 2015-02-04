@@ -86,6 +86,10 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
     private final String[] idFields;
 
+    private Boolean lowercaseExpandedTerms;
+
+    private Boolean autoGeneratePhraseQueries;
+
     /**
      * Rest actions that mock Solr update handlers
      *
@@ -114,6 +118,11 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                 SolrPluginConstants.DEFAULT_TYPE_NAME);
 
         idFields = settings.getAsArray("solr.idFields", DEFAULT_ID_FIELDS);
+
+        lowercaseExpandedTerms = settings.getAsBoolean(
+                "solr.lowercaseExpandedTerms", false);
+        autoGeneratePhraseQueries = settings.getAsBoolean(
+                "solr.autoGeneratePhraseQueries", true);
 
         // register update handlers
         // specifying and index and type is optional
@@ -558,8 +567,10 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         // create the delete request object
         final DeleteByQueryRequest deleteRequest = Requests
                 .deleteByQueryRequest(index);
-        deleteRequest
-                .source("{\"query_string\":{\"query\":\"" + query + "\"}}");
+        deleteRequest.source("{\"query\":{\"query_string\":{\"query\":\""
+                + query + "\",\"lowercase_expanded_terms\":"
+                + lowercaseExpandedTerms + ",\"auto_generate_phrase_queries\":"
+                + autoGeneratePhraseQueries + "}}}");
 
         deleteRequest.routing(request.param("routing"));
 
