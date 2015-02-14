@@ -15,6 +15,7 @@
                 <include>org.apache.solr:solr-solrj</include>
                 <include>org.noggit:noggit</include>
                 <include>org.slf4j:slf4j-api</include>
+                <include>commons-lang:commons-lang</include>
                 <include>commons-io:commons-io</include>
                 <include>commons-codec:commons-codec</include>
                 <include>org.codehaus.woodstox:wstx-asl</include>

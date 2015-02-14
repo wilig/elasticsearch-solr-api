@@ -1,7 +1,6 @@
 package org.codelibs.elasticsearch.solr.rest;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.StringReader;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -53,7 +52,6 @@ import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.BytesRestResponse;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
@@ -245,11 +243,11 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             } catch (final Exception e) {
                 // some sort of error processing the xml input
                 logger.error("Error processing xml input", e);
-                try {
-                    channel.sendResponse(new BytesRestResponse(channel, e));
-                } catch (final IOException e1) {
-                    logger.error("Failed to send error response", e1);
-                }
+                final NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
+                errorResponse.add("code", 500);
+                errorResponse.add("msg", e.getMessage());
+                sendResponse(requestEx, channel, 500,
+                        System.currentTimeMillis() - startTime, errorResponse);
                 return;
             } finally {
                 if (parser != null) {
@@ -303,11 +301,11 @@ public class SolrUpdateRestAction extends BaseRestHandler {
             } catch (final Exception e) {
                 // some sort of error processing the javabin input
                 logger.error("Error processing javabin input", e);
-                try {
-                    channel.sendResponse(new BytesRestResponse(channel, e));
-                } catch (final IOException e1) {
-                    logger.error("Failed to send error response", e1);
-                }
+                final NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
+                errorResponse.add("code", 500);
+                errorResponse.add("msg", e.getMessage());
+                sendResponse(requestEx, channel, 500,
+                        System.currentTimeMillis() - startTime, errorResponse);
                 return;
             }
         }
@@ -396,14 +394,15 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
                                     @Override
                                     public void onFailure(final Throwable t) {
-                                        try {
-                                            channel.sendResponse(new BytesRestResponse(
-                                                    channel, t));
-                                        } catch (final IOException e) {
-                                            logger.error(
-                                                    "Failed to send error response",
-                                                    e);
-                                        }
+                                        logger.error(
+                                                "Failed to commit indices.", t);
+                                        final NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
+                                        errorResponse.add("code", 500);
+                                        errorResponse.add("msg", t.getMessage());
+                                        sendResponse(requestEx, channel, 500,
+                                                System.currentTimeMillis()
+                                                        - startTime,
+                                                errorResponse);
                                     }
                                 });
             } else {
@@ -431,14 +430,16 @@ public class SolrUpdateRestAction extends BaseRestHandler {
 
                                     @Override
                                     public void onFailure(final Throwable t) {
-                                        try {
-                                            channel.sendResponse(new BytesRestResponse(
-                                                    channel, t));
-                                        } catch (final IOException e) {
-                                            logger.error(
-                                                    "Failed to send error response",
-                                                    e);
-                                        }
+                                        logger.error(
+                                                "Failed to optimize indices.",
+                                                t);
+                                        final NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
+                                        errorResponse.add("code", 500);
+                                        errorResponse.add("msg", t.getMessage());
+                                        sendResponse(requestEx, channel, 500,
+                                                System.currentTimeMillis()
+                                                        - startTime,
+                                                errorResponse);
                                     }
                                 });
             } else {
@@ -446,13 +447,12 @@ public class SolrUpdateRestAction extends BaseRestHandler {
                         - startTime, null);
             }
         } else {
-            try {
-                channel.sendResponse(new BytesRestResponse(channel,
-                        new UnsupportedOperationException(
-                                "Unsupported request: " + requestEx.toString())));
-            } catch (final IOException e) {
-                logger.error("Failed to send error response", e);
-            }
+            final NamedList<Object> errorResponse = new SimpleOrderedMap<Object>();
+            errorResponse.add("code", 500);
+            errorResponse.add("msg", "Unknown request parameters.");
+            sendResponse(requestEx, channel,
+                    500, System.currentTimeMillis() - startTime,
+                    errorResponse);
         }
     }
 
