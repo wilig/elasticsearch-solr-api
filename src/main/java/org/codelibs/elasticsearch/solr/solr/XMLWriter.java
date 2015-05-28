@@ -31,6 +31,7 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.XML;
 import org.apache.solr.response.SolrQueryResponse;
 import org.elasticsearch.common.joda.time.DateTime;
+import org.elasticsearch.common.joda.time.DateTimeZone;
 import org.elasticsearch.common.joda.time.format.DateTimeFormat;
 import org.elasticsearch.common.joda.time.format.DateTimeFormatter;
 
@@ -460,7 +461,7 @@ final public class XMLWriter {
 
     public void writeDate(final String name, final Date val) throws IOException {
         // updated to use Joda time
-        this.writeDate(name, new DateTime(val).toString(dateFormat));
+        this.writeDate(name, new DateTime(val).withZone(DateTimeZone.UTC).toString(dateFormat));
     }
 
     public void writeDate(final String name, final String val)
