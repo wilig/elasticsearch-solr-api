@@ -7,14 +7,7 @@ import java.io.Writer;
 import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Pattern;
 
 import org.apache.lucene.search.Explanation;
@@ -72,17 +65,21 @@ public class SolrResponseUtils {
 
     private static final String YYYY_MM_DD_T_HH_MM_SS_SSS_Z = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
 
+    private static final TimeZone TIMEZONE_UTC = TimeZone.getTimeZone("UTC");
+
     protected SolrResponseUtils() {
     }
 
     private static Date parseISODateFormat(final String value) {
         try {
-            return new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_SSS_Z,
-                    Locale.ROOT).parse(value);
+            final SimpleDateFormat sdf = new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_SSS_Z, Locale.ROOT);
+            sdf.setTimeZone(TIMEZONE_UTC);
+            return sdf.parse(value);
         } catch (final ParseException e) {
             try {
-                return new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_Z,
-                        Locale.ROOT).parse(value);
+                final SimpleDateFormat sdf = new SimpleDateFormat(YYYY_MM_DD_T_HH_MM_SS_Z, Locale.ROOT);
+                sdf.setTimeZone(TIMEZONE_UTC);
+                return sdf.parse(value);
             } catch (final ParseException e1) {
                 throw new ElasticsearchException("Could not parse " + value, e);
             }
