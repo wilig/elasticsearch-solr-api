@@ -38,7 +38,7 @@ import org.apache.solr.search.SolrReturnFields;
  * String strJson =writer.toString(); 
  * }</pre>
  * 
- * @author Paulo Amaral {@link "http://github.com/paulera"}
+ * @author Paulo Amaral
  */
 @SuppressWarnings("deprecation")
 public class JSONWriter {
@@ -306,7 +306,7 @@ public class JSONWriter {
 
 	/**
 	 * Represents a NamedList directly as an array of JSON objects.
-	 * NamedList("a"=1,"b"=2,null=3) => [{"a":1},{"b":2},3]
+	 * NamedList("a"=1,"b"=2,null=3) =&gt; [{"a":1},{"b":2},3]
 	 * @param val the NamedList instance
 	 * @throws IOException
 	 */		
@@ -337,7 +337,7 @@ public class JSONWriter {
 
 	/**
 	 * Represents a NamedList directly as an array of arrays
-	 * NamedList("a"=1,"b"=2,null=3) => [["a",1],["b",2],[null,3]]
+	 * NamedList("a"=1,"b"=2,null=3) =&gt; [["a",1],["b",2],[null,3]]
 	 * @param val the NamedList instance
 	 * @throws IOException
 	 */	
@@ -377,7 +377,7 @@ public class JSONWriter {
 	/**
 	 * Represents a NamedList directly as an array with keys/values
 	 * interleaved.
-	 * NamedList("a"=1,"b"=2,null=3) => ["a",1,"b",2,null,3]
+	 * NamedList("a"=1,"b"=2,null=3) =&gt; ["a",1,"b",2,null,3]
 	 * @param val the NamedList instance
 	 * @throws IOException
 	 */	
@@ -422,7 +422,6 @@ public class JSONWriter {
 
 	/**
 	 * Write a generic value (detects the value's type and call the specific function to proper write it).
-	 * @param name
 	 * @param val
 	 * @throws IOException
 	 */
