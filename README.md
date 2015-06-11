@@ -23,13 +23,14 @@ The original project is [mocksolrplugin](https://github.com/mattweber/elasticsea
 
 Type the following command:
 
-    $ ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.6.0
+    $ ./bin/plugin --install org.codelibs/elasticsearch-solr-api/1.7.0
 
 ## Versions
 
 | Solr API | elasticsearch | Lucene/Solr |
 |:--------:|:-------------:|:-----------:|
-| master   | 1.4.x         | 4.10.1      |
+| master   | 1.6.x         | 4.10.4      |
+| 1.7.0    | 1.5.2         | 4.10.4      |
 | 1.6.0    | 1.4.0.Beta1   | 4.10.1      |
 | 1.5.2    | 1.3.4         | 4.9.1       |
 | 1.4.0    | 1.2.0         | 4.8.1       |
