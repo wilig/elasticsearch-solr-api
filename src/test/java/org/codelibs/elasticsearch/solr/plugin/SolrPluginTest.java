@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import junit.framework.TestCase;
 
@@ -39,7 +40,8 @@ public class SolrPluginTest extends TestCase {
             @Override
             public void build(final int number, final Builder settingsBuilder) {
             }
-        }).build(newConfigs().numOfNode(1).ramIndexStore());
+        }).build(newConfigs().numOfNode(1).ramIndexStore()
+                .clusterName(UUID.randomUUID().toString()));
 
         // wait for yellow status
         runner.ensureYellow();

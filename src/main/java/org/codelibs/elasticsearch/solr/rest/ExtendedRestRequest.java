@@ -144,11 +144,6 @@ public class ExtendedRestRequest extends RestRequest {
     }
 
     @Override
-    public boolean contentUnsafe() {
-        return parent.contentUnsafe();
-    }
-
-    @Override
     public BytesReference content() {
         return parent.content();
     }

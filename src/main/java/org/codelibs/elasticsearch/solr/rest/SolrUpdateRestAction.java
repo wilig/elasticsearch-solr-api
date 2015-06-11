@@ -44,6 +44,7 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.deletebyquery.DeleteByQueryRequest;
 import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.support.QuerySourceBuilder;
 import org.elasticsearch.action.support.replication.ReplicationType;
 import org.elasticsearch.action.support.replication.ShardReplicationOperationRequest;
 import org.elasticsearch.client.Client;
@@ -51,6 +52,7 @@ import org.elasticsearch.client.Requests;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestController;
@@ -557,6 +559,7 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         return deleteRequest;
     }
 
+    // TODO replace with deleting ids with scan/scroll
     private DeleteByQueryRequest getDeleteQueryRequest(final String query,
             final RestRequest request) {
 
@@ -567,10 +570,10 @@ public class SolrUpdateRestAction extends BaseRestHandler {
         // create the delete request object
         final DeleteByQueryRequest deleteRequest = Requests
                 .deleteByQueryRequest(index);
-        deleteRequest.source("{\"query\":{\"query_string\":{\"query\":\""
-                + query + "\",\"lowercase_expanded_terms\":"
-                + lowercaseExpandedTerms + ",\"auto_generate_phrase_queries\":"
-                + autoGeneratePhraseQueries + "}}}");
+        deleteRequest.source(new QuerySourceBuilder()
+                .setQuery(QueryBuilders.queryStringQuery(query)
+                        .lowercaseExpandedTerms(lowercaseExpandedTerms)
+                        .autoGeneratePhraseQueries(autoGeneratePhraseQueries)));
 
         deleteRequest.routing(request.param("routing"));
 

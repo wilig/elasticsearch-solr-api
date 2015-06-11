@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.Terms;
 import org.apache.lucene.search.Filter;
 import org.apache.lucene.search.NumericRangeFilter;
 import org.apache.lucene.search.NumericRangeQuery;
@@ -32,6 +33,7 @@ import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.NumericUtils;
 import org.apache.lucene.util.ToStringUtils;
 import org.elasticsearch.ElasticsearchIllegalArgumentException;
+import org.elasticsearch.action.fieldstats.FieldStats;
 import org.elasticsearch.common.Explicit;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.Numbers;
@@ -345,14 +347,6 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                 iValue - iSim, iValue + iSim, true, true);
     }
 
-    @Override
-    public Query termQuery(final Object value,
-            @Nullable final QueryParseContext context) {
-        final long lValue = parseToMilliseconds(value);
-        return NumericRangeQuery.newLongRange(names.indexName(), precisionStep,
-                lValue, lValue, true, true);
-    }
-
     public long parseToMilliseconds(final Object value) {
         return parseToMilliseconds(value, false, null, dateMathParser);
     }
@@ -376,14 +370,6 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
         }
         final boolean roundUp = inclusive && roundCeil;
         return dateParser.parse(value, now(), roundUp, zone);
-    }
-
-    @Override
-    public Filter termFilter(final Object value,
-            @Nullable final QueryParseContext context) {
-        final long lValue = parseToMilliseconds(value);
-        return NumericRangeFilter.newLongRange(names.indexName(),
-                precisionStep, lValue, lValue, true, true);
     }
 
     @Override
@@ -717,6 +703,15 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
         }
     }
 
+    @Override
+    public FieldStats stats(Terms terms, int maxDoc) throws IOException {
+        long minValue = NumericUtils.getMinLong(terms);
+        long maxValue = NumericUtils.getMaxLong(terms);
+        return new FieldStats.Date(
+                maxDoc, terms.getDocCount(), terms.getSumDocFreq(), terms.getSumTotalTermFreq(), minValue, maxValue, dateTimeFormatter
+        );
+    }
+
     private long parseStringValue(final String value) {
         try {
             return dateTimeFormatter.parser().parseMillis(value);
@@ -726,8 +721,7 @@ public class SolrDateFieldMapper extends NumberFieldMapper<Long> {
                         System.currentTimeMillis()).getTime();
             } catch (final Exception e) {
                 try {
-                    final long time = Long.parseLong(value);
-                    return timeUnit.toMillis(time);
+                    return timeUnit.toMillis(Long.parseLong(value));
                 } catch (final NumberFormatException e1) {
                     throw new MapperParsingException(
                             "failed to parse date field [" + value
